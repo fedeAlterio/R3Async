@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="R3Async.Tests/R3Async.Tests.csproj" Id="6aa55beb-17e6-4c8f-adbd-d152d7426cdd" />
+  <Project Path="R3Async/R3Async.csproj" />
+</Solution>
