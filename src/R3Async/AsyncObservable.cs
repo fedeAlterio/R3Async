@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,23 +25,25 @@ public abstract class AsyncObservable<T>
     protected abstract ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken);
 }
 
-public abstract class AsyncObserver<T>: IAsyncDisposable
+public abstract class AsyncObserver<T> : IAsyncDisposable
 {
     internal readonly SingleAssignmentAsyncDisposable SourceSubscription = new();
-    bool _disposed;
     readonly AsyncLocal<int> _onSomethingReentranceCount = new();
+    readonly CancellationTokenSource _disposeCts = new();
     int _onSomethingCallsCount;
     TaskCompletionSource<object?>? _onSomethingCompletedTcs;
+    bool _disposed;
     object Gate => _onSomethingReentranceCount;
 
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
     {
-        if (!ShouldEnterOnSomethingCall(cancellationToken))
+        if (!ShouldEnterOnSomethingCall(cancellationToken, out var linkedCts))
             return;
 
+        var linkedToken = linkedCts.Token;
         try
         {
-            await OnNextAsyncCore(value, cancellationToken);
+            await OnNextAsyncCore(value, linkedToken);
         }
         catch (OperationCanceledException)
         {
@@ -48,34 +51,40 @@ public abstract class AsyncObserver<T>: IAsyncDisposable
         }
         catch (Exception e)
         {
-            await OnErrorResumeAsync_Private(e, cancellationToken);
+            await OnErrorResumeAsync_Private(e, linkedToken);
         }
         finally
         {
+            linkedCts.Dispose();
             ExitOnSomethingCall();
         }
     }
     protected abstract ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken);
 
 
-    bool ShouldEnterOnSomethingCall(CancellationToken cancellationToken)
+    bool ShouldEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
     {
         lock (Gate)
         {
-            if (_disposed || cancellationToken.IsCancellationRequested) return false;
+            if (_disposed || cancellationToken.IsCancellationRequested)
+            {
+                linkedCts = null;
+                return false;
+            }
             _onSomethingReentranceCount.Value++;
             _onSomethingCallsCount++;
-        }
 
-        return true;
+            linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            return true;
+        }
     }
 
     bool ExitOnSomethingCall()
     {
         lock (Gate)
         {
-            var count = _onSomethingCallsCount--;
-            --_onSomethingReentranceCount.Value;
+            var count = --_onSomethingCallsCount;
+            _onSomethingReentranceCount.Value--;
 
             if (count == 0)
             {
@@ -89,15 +98,16 @@ public abstract class AsyncObserver<T>: IAsyncDisposable
 
     public async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
     {
-        if (!ShouldEnterOnSomethingCall(cancellationToken))
+        if (!ShouldEnterOnSomethingCall(cancellationToken, out var linkedCts))
             return;
 
         try
         {
-            await OnErrorResumeAsync_Private(error, cancellationToken);
+            await OnErrorResumeAsync_Private(error, linkedCts.Token);
         }
         finally
         {
+            linkedCts.Dispose();
             ExitOnSomethingCall();
         }
     }
@@ -129,12 +139,12 @@ public abstract class AsyncObserver<T>: IAsyncDisposable
 
     public async ValueTask OnCompletedAsync(Result result, CancellationToken cancellationToken)
     {
-        if (!ShouldEnterOnSomethingCall(cancellationToken))
+        if (!ShouldEnterOnSomethingCall(cancellationToken, out var linkedCts))
             return;
 
         try
         {
-            await OnCompletedAsyncCore(result, cancellationToken);
+            await OnCompletedAsyncCore(result, linkedCts.Token);
         }
         catch (Exception e)
         {
@@ -142,10 +152,12 @@ public abstract class AsyncObserver<T>: IAsyncDisposable
         }
         finally
         {
+            linkedCts.Dispose();
             if (ExitOnSomethingCall()) // true if not disposed yet
             {
                 await DisposeAsync();
             }
+
         }
     }
 
@@ -160,18 +172,20 @@ public abstract class AsyncObserver<T>: IAsyncDisposable
             if (_disposed) return;
             _disposed = true;
 
+            _disposeCts.Cancel();
             if (_onSomethingReentranceCount.Value == 0 && _onSomethingCallsCount > 0)
             {
                 _onSomethingCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 allOnSomethingCallsCompleted = _onSomethingCompletedTcs.Task;
             }
         }
-
+        
         if (allOnSomethingCallsCompleted is not null)
         {
             await allOnSomethingCallsCompleted;
         }
 
+        _disposeCts.Dispose();
         await DisposeAsync_Private();
     }
 

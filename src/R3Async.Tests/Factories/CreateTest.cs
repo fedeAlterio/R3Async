@@ -1,7 +1,8 @@
-﻿using Shouldly;
+﻿using R3Async;
+using Shouldly;
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 
-namespace R3Async.Tests;
+namespace R3Async.Tests.Factories;
 
 public class CreateTest
 {
@@ -347,5 +348,128 @@ public class CreateTest
         results.ShouldBe(new[] { 1 });
         disposed.ShouldBeTrue();
         sourceDisposed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task DisposeAsyncWaitsForCallbacksToCompleteTest()
+    {
+        var onNextStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onNextCanComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onNextCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        
+        var onErrorResumeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onCompletedStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var emitNext = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitError = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitNext2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitNext.Task;
+                await observer.OnNextAsync(1, token);
+                
+                await emitError.Task;
+                await observer.OnErrorResumeAsync(new InvalidOperationException("test"), token);
+                
+                await emitComplete.Task;
+                await observer.OnCompletedAsync(Result.Success, token);
+                
+                await emitNext2.Task;
+                await observer.OnNextAsync(2, token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) =>
+            {
+                onNextStarted.SetResult();
+                await onNextCanComplete.Task;
+                onNextCompleted.SetResult();
+            },
+            async (ex, token) =>
+            {
+                onErrorResumeStarted.SetResult();
+            },
+            async (result, token) =>
+            {
+                onCompletedStarted.SetResult();
+            },
+            CancellationToken.None);
+
+        emitNext.SetResult();
+        await onNextStarted.Task;
+        onNextCompleted.Task.IsCompleted.ShouldBeFalse();
+        
+        var disposeTask = subscription.DisposeAsync().AsTask();
+        await Task.Yield();
+        
+        disposeTask.IsCompleted.ShouldBeFalse();
+        
+        onNextCanComplete.SetResult();
+        await onNextCompleted.Task;
+        
+        await disposeTask;
+        
+        emitError.SetResult();
+        await Task.Yield();
+        onErrorResumeStarted.Task.IsCompleted.ShouldBeFalse();
+        
+        emitComplete.SetResult();
+        await Task.Yield();
+        onCompletedStarted.Task.IsCompleted.ShouldBeFalse();
+        
+        emitNext2.SetResult();
+        await Task.Yield();
+        onNextStarted.Task.IsCompleted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task DisposeAsyncCompletesImmediatelyOnReentrantCallTest()
+    {
+        var onNextStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onNextCanComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onNextCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var disposeCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var emitNext = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitNext.Task;
+                await observer.OnNextAsync(1, token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        IAsyncDisposable? subscription = null;
+        subscription = await observable.SubscribeAsync(
+            async (x, token) =>
+            {
+                onNextStarted.SetResult();
+                
+                await subscription!.DisposeAsync();
+                disposeCompleted.SetResult();
+                
+                await onNextCanComplete.Task;
+                onNextCompleted.SetResult();
+            },
+            CancellationToken.None);
+
+        emitNext.SetResult();
+        await onNextStarted.Task;
+        
+        await disposeCompleted.Task;
+        
+        onNextCompleted.Task.IsCompleted.ShouldBeFalse();
+        
+        onNextCanComplete.SetResult();
+        await onNextCompleted.Task;
     }
 }

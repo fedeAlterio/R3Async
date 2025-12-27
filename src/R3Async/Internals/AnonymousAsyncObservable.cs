@@ -8,7 +8,7 @@ internal sealed class AnonymousAsyncObservable<T>(Func<AsyncObserver<T>, Cancell
 {
     protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
     {
-        return subscribeAsync(observer.Wrap(), cancellationToken);
+        return subscribeAsync(observer, cancellationToken);
     }
 }
 
