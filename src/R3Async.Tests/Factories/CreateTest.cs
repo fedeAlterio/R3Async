@@ -1,5 +1,4 @@
-﻿using R3Async;
-using Shouldly;
+﻿using Shouldly;
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 
 namespace R3Async.Tests.Factories;
@@ -471,5 +470,262 @@ public class CreateTest
         
         onNextCanComplete.SetResult();
         await onNextCompleted.Task;
+    }
+
+    [Fact]
+    public async Task OnNextCancelledWhenProducerCancelsTokenTest()
+    {
+        var cts = new CancellationTokenSource();
+        var onNextStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onNextTokenCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitNext = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitNext.Task;
+                await observer.OnNextAsync(1, cts.Token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) =>
+            {
+                onNextStarted.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    onNextTokenCancelled.SetResult();
+                }
+            },
+            CancellationToken.None);
+
+        emitNext.SetResult();
+        await onNextStarted.Task;
+        
+        await cts.CancelAsync();
+        await onNextTokenCancelled.Task;
+        
+        await subscription.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task OnNextCancelledWhenSubscriptionDisposedTest()
+    {
+        var onNextStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onNextTokenCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitNext = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitNext.Task;
+                await observer.OnNextAsync(1, token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) =>
+            {
+                onNextStarted.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    onNextTokenCancelled.SetResult();
+                }
+            },
+            CancellationToken.None);
+
+        emitNext.SetResult();
+        await onNextStarted.Task;
+        
+        var disposeTask = subscription.DisposeAsync().AsTask();
+        await onNextTokenCancelled.Task;
+        
+        await disposeTask;
+    }
+
+    [Fact]
+    public async Task OnErrorResumeCancelledWhenProducerCancelsTokenTest()
+    {
+        var cts = new CancellationTokenSource();
+        var onErrorResumeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onErrorResumeTokenCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitError = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitError.Task;
+                await observer.OnErrorResumeAsync(new InvalidOperationException("test"), cts.Token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) => { },
+            async (ex, token) =>
+            {
+                onErrorResumeStarted.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    onErrorResumeTokenCancelled.SetResult();
+                }
+            },
+            null,
+            CancellationToken.None);
+
+        emitError.SetResult();
+        await onErrorResumeStarted.Task;
+        
+        await cts.CancelAsync();
+        await onErrorResumeTokenCancelled.Task;
+        
+        await subscription.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task OnErrorResumeCancelledWhenSubscriptionDisposedTest()
+    {
+        var onErrorResumeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onErrorResumeTokenCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitError = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitError.Task;
+                await observer.OnErrorResumeAsync(new InvalidOperationException("test"), token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) => { },
+            async (ex, token) =>
+            {
+                onErrorResumeStarted.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    onErrorResumeTokenCancelled.SetResult();
+                }
+            },
+            null,
+            CancellationToken.None);
+
+        emitError.SetResult();
+        await onErrorResumeStarted.Task;
+        
+        var disposeTask = subscription.DisposeAsync().AsTask();
+        await onErrorResumeTokenCancelled.Task;
+        
+        await disposeTask;
+    }
+
+    [Fact]
+    public async Task OnCompletedCancelledWhenProducerCancelsTokenTest()
+    {
+        var cts = new CancellationTokenSource();
+        var onCompletedStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onCompletedTokenCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitComplete.Task;
+                await observer.OnCompletedAsync(Result.Success, cts.Token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) => { },
+            async (ex, token) => { },
+            async (result, token) =>
+            {
+                onCompletedStarted.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    onCompletedTokenCancelled.SetResult();
+                }
+            },
+            CancellationToken.None);
+
+        emitComplete.SetResult();
+        await onCompletedStarted.Task;
+        
+        await cts.CancelAsync();
+        await onCompletedTokenCancelled.Task;
+        
+        await subscription.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task OnCompletedCancelledWhenSubscriptionDisposedTest()
+    {
+        var onCompletedStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onCompletedTokenCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var observable = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await emitComplete.Task;
+                await observer.OnCompletedAsync(Result.Success, token);
+            });
+            return AsyncDisposable.Empty;
+        });
+
+        var subscription = await observable.SubscribeAsync(
+            async (x, token) => { },
+            async (ex, token) => { },
+            async (result, token) =>
+            {
+                onCompletedStarted.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    onCompletedTokenCancelled.SetResult();
+                }
+            },
+            CancellationToken.None);
+
+        emitComplete.SetResult();
+        await onCompletedStarted.Task;
+        
+        var disposeTask = subscription.DisposeAsync().AsTask();
+        await onCompletedTokenCancelled.Task;
+        
+        await disposeTask;
     }
 }
