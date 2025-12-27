@@ -6,31 +6,22 @@ namespace R3Async;
 
 public sealed class SingleAssignmentAsyncDisposable : IAsyncDisposable
 {
-    SingleAssignmentAsyncDisposableCore _core;
-    public bool IsDisposed => _core.IsDisposed;
-    public IAsyncDisposable? GetDisposable() => _core.GetDisposable();
-    public ValueTask SetDisposableAsync(IAsyncDisposable? disposable) => _core.SetDisposable(disposable);
-    public ValueTask DisposeAsync() => _core.DisposeAsync();
-}
-
-public struct SingleAssignmentAsyncDisposableCore : IAsyncDisposable
-{
     IAsyncDisposable? _current;
 
-    public bool IsDisposed => Volatile.Read(ref _current) == DisposedSentinel.Instance;
+    public bool IsDisposed => ReferenceEquals(Volatile.Read(ref _current), DisposedSentinel.Instance);
 
     public IAsyncDisposable? GetDisposable()
     {
         var field = Volatile.Read(ref _current);
         if (ReferenceEquals(field, DisposedSentinel.Instance))
         {
-            return AsyncDisposable.Empty; 
+            return AsyncDisposable.Empty;
         }
 
         return field;
     }
 
-    public async ValueTask SetDisposable(IAsyncDisposable? value)
+    public async ValueTask SetDisposableAsync(IAsyncDisposable? value)
     {
         var field = Interlocked.CompareExchange(ref _current, value, null);
         if (field == null)

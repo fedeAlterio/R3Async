@@ -11,7 +11,7 @@ public abstract class AsyncObservable<T>
         try
         {
             var subscription = await SubscribeAsyncCore(observer, cancellationToken);
-            await observer.SourceSubscription.SetDisposable(subscription);
+            await observer.SourceSubscription.SetDisposableAsync(subscription);
             return observer;
         }
         catch
@@ -24,10 +24,9 @@ public abstract class AsyncObservable<T>
     protected abstract ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken);
 }
 
-
-public abstract class AsyncObserver<T> : IAsyncDisposable
+public abstract class AsyncObserver<T>: IAsyncDisposable
 {
-    internal SingleAssignmentAsyncDisposableCore SourceSubscription;
+    internal readonly SingleAssignmentAsyncDisposable SourceSubscription = new();
     bool _disposed;
     readonly AsyncLocal<int> _onSomethingReentranceCount = new();
     int _onSomethingCallsCount;
@@ -56,6 +55,8 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             ExitOnSomethingCall();
         }
     }
+    protected abstract ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken);
+
 
     bool ShouldEnterOnSomethingCall(CancellationToken cancellationToken)
     {
@@ -86,8 +87,6 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         return true;
     }
 
-    protected abstract ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken);
-
     public async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
     {
         if (!ShouldEnterOnSomethingCall(cancellationToken))
@@ -102,6 +101,8 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             ExitOnSomethingCall();
         }
     }
+    protected abstract ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken);
+
 
     async ValueTask OnErrorResumeAsync_Private(Exception error, CancellationToken cancellationToken)
     {
@@ -126,8 +127,6 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     }
 
 
-    protected abstract ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken);
-
     public async ValueTask OnCompletedAsync(Result result, CancellationToken cancellationToken)
     {
         if (!ShouldEnterOnSomethingCall(cancellationToken))
@@ -151,6 +150,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     }
 
     protected abstract ValueTask OnCompletedAsyncCore(Result result, CancellationToken cancellationToken);
+
 
     public async ValueTask DisposeAsync()
     {
