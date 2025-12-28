@@ -21,37 +21,44 @@ public sealed class SingleAssignmentAsyncDisposable : IAsyncDisposable
         return field;
     }
 
-    public async ValueTask SetDisposableAsync(IAsyncDisposable? value)
+    internal static ValueTask SetDisposableAsync(ref IAsyncDisposable? field, IAsyncDisposable? value)
     {
-        var field = Interlocked.CompareExchange(ref _current, value, null);
-        if (field == null)
+        var current = Interlocked.CompareExchange(ref field, value, null);
+        if (current == null)
         {
             // ok to set.
-            return;
+            return default;
         }
 
-        if (ReferenceEquals(field, DisposedSentinel.Instance))
+        if (ReferenceEquals(current, DisposedSentinel.Instance))
         {
             if (value is not null)
             {
-                await value.DisposeAsync();
+                return value.DisposeAsync();
             }
 
-            return;
+            return default;
         }
 
         // otherwise, invalid assignment
         ThrowAlreadyAssignment();
+        return default;
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask SetDisposableAsync(IAsyncDisposable? value) => SetDisposableAsync(ref _current, value);
+
+    internal static ValueTask DisposeAsync(ref IAsyncDisposable? field)
     {
-        var field = Interlocked.Exchange(ref _current, DisposedSentinel.Instance);
-        if (!ReferenceEquals(field, DisposedSentinel.Instance) && field is not null)
+        var current = Interlocked.Exchange(ref field, DisposedSentinel.Instance);
+        if (!ReferenceEquals(current, DisposedSentinel.Instance) && current is not null)
         {
-            await field.DisposeAsync();
+            return current.DisposeAsync();
         }
+
+        return default;
     }
+
+    public ValueTask DisposeAsync() => DisposeAsync(ref _current);
 
     static void ThrowAlreadyAssignment()
     {

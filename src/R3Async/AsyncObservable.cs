@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ public abstract class AsyncObservable<T>
         try
         {
             var subscription = await SubscribeAsyncCore(observer, cancellationToken);
-            await observer.SourceSubscription.SetDisposableAsync(subscription);
+            await observer.SetSourceSubscriptionAsync(subscription);
             return observer;
         }
         catch
@@ -27,17 +28,17 @@ public abstract class AsyncObservable<T>
 
 public abstract class AsyncObserver<T> : IAsyncDisposable
 {
-    internal readonly SingleAssignmentAsyncDisposable SourceSubscription = new();
-    readonly AsyncLocal<int> _onSomethingReentranceCount = new();
+    readonly AsyncLocal<bool> _reentrantCallPending = new();
     readonly CancellationTokenSource _disposeCts = new();
-    int _onSomethingCallsCount;
-    TaskCompletionSource<object?>? _onSomethingCompletedTcs;
-    bool _disposed;
-    object Gate => _onSomethingReentranceCount;
+    bool _callPending;
+    TaskCompletionSource<object?>? _allCallsCompletedTcs;
+    
+    IAsyncDisposable? _sourceSubscription;
+    internal ValueTask SetSourceSubscriptionAsync(IAsyncDisposable? value) => SingleAssignmentAsyncDisposable.SetDisposableAsync(ref _sourceSubscription, value);
 
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
     {
-        if (!ShouldEnterOnSomethingCall(cancellationToken, out var linkedCts))
+        if (!TryEnterOnSomethingCall(cancellationToken, out var linkedCts))
             return;
 
         var linkedToken = linkedCts.Token;
@@ -61,18 +62,24 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     }
     protected abstract ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken);
 
-
-    bool ShouldEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
+    bool TryEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
     {
-        lock (Gate)
+        lock (_reentrantCallPending)
         {
-            if (_disposed || cancellationToken.IsCancellationRequested)
+            if (_disposeCts.IsCancellationRequested || cancellationToken.IsCancellationRequested)
             {
                 linkedCts = null;
                 return false;
             }
-            _onSomethingReentranceCount.Value++;
-            _onSomethingCallsCount++;
+
+            if (_callPending)
+            {
+                throw new InvalidOperationException($"Concurrent calls of {nameof(OnNextAsync)}, {nameof(OnErrorResumeAsync)}, {nameof(OnCompletedAsync)} are not allowed. There is already a call pending");
+            }
+            Debug.Assert(!_reentrantCallPending.Value);
+
+            _callPending = true;
+            _reentrantCallPending.Value = true;
 
             linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
             return true;
@@ -81,14 +88,15 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
 
     bool ExitOnSomethingCall()
     {
-        lock (Gate)
+        lock (_reentrantCallPending)
         {
-            var count = --_onSomethingCallsCount;
-            _onSomethingReentranceCount.Value--;
-
-            if (count == 0)
+            Debug.Assert(_callPending);
+            Debug.Assert(_reentrantCallPending.Value);
+            _callPending = false;
+            _reentrantCallPending.Value = false;
+            if (_allCallsCompletedTcs is not null)
             {
-                _onSomethingCompletedTcs?.SetResult(null);
+                _allCallsCompletedTcs.SetResult(null);
                 return false;
             }
         }
@@ -98,7 +106,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
 
     public async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
     {
-        if (!ShouldEnterOnSomethingCall(cancellationToken, out var linkedCts))
+        if (!TryEnterOnSomethingCall(cancellationToken, out var linkedCts))
             return;
 
         try
@@ -136,10 +144,9 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
     }
 
-
     public async ValueTask OnCompletedAsync(Result result, CancellationToken cancellationToken)
     {
-        if (!ShouldEnterOnSomethingCall(cancellationToken, out var linkedCts))
+        if (!TryEnterOnSomethingCall(cancellationToken, out var linkedCts))
             return;
 
         try
@@ -153,11 +160,10 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         finally
         {
             linkedCts.Dispose();
-            if (ExitOnSomethingCall()) // true if not disposed yet
+            if (ExitOnSomethingCall())
             {
                 await DisposeAsync();
             }
-
         }
     }
 
@@ -167,16 +173,15 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Task? allOnSomethingCallsCompleted = null;
-        lock (Gate)
+        lock (_reentrantCallPending)
         {
-            if (_disposed) return;
-            _disposed = true;
+            if (_disposeCts.IsCancellationRequested) return;
 
             _disposeCts.Cancel();
-            if (_onSomethingReentranceCount.Value == 0 && _onSomethingCallsCount > 0)
+            if (!_reentrantCallPending.Value && _callPending)
             {
-                _onSomethingCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                allOnSomethingCallsCompleted = _onSomethingCompletedTcs.Task;
+                _allCallsCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                allOnSomethingCallsCompleted = _allCallsCompletedTcs.Task;
             }
         }
         
@@ -186,12 +191,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
 
         _disposeCts.Dispose();
-        await DisposeAsync_Private();
-    }
-
-    async ValueTask DisposeAsync_Private()
-    {
-        await SourceSubscription.DisposeAsync();
+        await SingleAssignmentAsyncDisposable.DisposeAsync(ref _sourceSubscription);
         await DisposeAsyncCore();
     }
 
