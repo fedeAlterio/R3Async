@@ -10,7 +10,7 @@ public static partial class AsyncObservable
     {
         public AsyncObservable<T> Where(Func<T, CancellationToken, ValueTask<bool>> predicate)
         {
-            return Create<T>(async (observer, subscribeToken) =>
+            return R3Async.AsyncObservable.Create<T>(async (observer, subscribeToken) =>
             {
                 return await @this.SubscribeAsync(async (x, token) =>
                 {
@@ -18,13 +18,13 @@ public static partial class AsyncObservable
                     {
                         await observer.OnNextAsync(x, token);
                     }
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, cancellationToken: subscribeToken);
+                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
             });
         }
 
         public AsyncObservable<T> Where(Func<T, bool> predicate)
         {
-            return Create<T>(async (observer, subscribeToken) =>
+            return R3Async.AsyncObservable.Create<T>(async (observer, subscribeToken) =>
             {
                 return await @this.SubscribeAsync((x, token) =>
                 {
@@ -34,7 +34,7 @@ public static partial class AsyncObservable
                     }
 
                     return default;
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, cancellationToken: subscribeToken);
+                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
             });
         }
     }
