@@ -9,6 +9,8 @@ public static class UnhandledExceptionHandler
     static void DefaultUnhandledExceptionHandler(Exception exception) => Console.WriteLine("R3 UnhandleException: " + exception);
     internal static void OnUnhandledException(Exception e)
     {
+        if (e is OperationCanceledException) return;
+
         try
         {
             _unhandledException(e);

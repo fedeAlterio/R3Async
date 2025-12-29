@@ -124,7 +124,15 @@ internal sealed class ConcatObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         async ValueTask CompleteAsync(Result? result)
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
+            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+            {
+                if (result?.Exception is not null and var exception)
+                {
+                    UnhandledExceptionHandler.OnUnhandledException(exception);
+                }
+
+                return;
+            }
 
             _disposeCts.Cancel();
             await _outerDisposable.DisposeAsync();
