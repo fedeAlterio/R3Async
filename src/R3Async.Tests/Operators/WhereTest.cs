@@ -106,7 +106,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(2, token);
             await observer.OnNextAsync(3, token);
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -116,7 +116,7 @@ public class WhereTest
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result, token) => tcs.SetResult(result.IsSuccess),
+            async (result) => tcs.SetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await tcs.Task;
@@ -132,7 +132,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(2, token);
             await observer.OnNextAsync(3, token);
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -142,7 +142,7 @@ public class WhereTest
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result, token) => tcs.SetResult(result.IsSuccess),
+            async (result) => tcs.SetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await tcs.Task;
@@ -356,7 +356,7 @@ public class WhereTest
     {
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -366,7 +366,7 @@ public class WhereTest
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result, token) => tcs.SetResult(true),
+            async (result) => tcs.SetResult(true),
             CancellationToken.None);
         
         await tcs.Task;

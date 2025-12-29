@@ -144,14 +144,14 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
     }
 
-    public async ValueTask OnCompletedAsync(Result result, CancellationToken cancellationToken)
+    public async ValueTask OnCompletedAsync(Result result)
     {
-        if (!TryEnterOnSomethingCall(cancellationToken, out var linkedCts))
+        if (!TryEnterOnSomethingCall(CancellationToken.None, out var linkedCts))
             return;
 
         try
         {
-            await OnCompletedAsyncCore(result, linkedCts.Token);
+            await OnCompletedAsyncCore(result);
         }
         catch (Exception e)
         {
@@ -167,7 +167,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
     }
 
-    protected abstract ValueTask OnCompletedAsyncCore(Result result, CancellationToken cancellationToken);
+    protected abstract ValueTask OnCompletedAsyncCore(Result result);
 
 
     public async ValueTask DisposeAsync()

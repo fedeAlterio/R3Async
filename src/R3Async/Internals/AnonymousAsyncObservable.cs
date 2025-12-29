@@ -14,7 +14,7 @@ internal sealed class AnonymousAsyncObservable<T>(Func<AsyncObserver<T>, Cancell
 
 internal sealed class AnonymousAsyncObserver<T>(Func<T, CancellationToken, ValueTask> onNextAsync,
                                                 Func<Exception, CancellationToken, ValueTask>? onErrorResumeAsync = null,
-                                                Func<Result, CancellationToken, ValueTask>? onCompletedAsync = null) : AsyncObserver<T>
+                                                Func<Result, ValueTask>? onCompletedAsync = null) : AsyncObserver<T>
 {
     protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
     {
@@ -32,7 +32,7 @@ internal sealed class AnonymousAsyncObserver<T>(Func<T, CancellationToken, Value
         return onErrorResumeAsync.Invoke(error, cancellationToken);
     }
 
-    protected override ValueTask OnCompletedAsyncCore(Result result, CancellationToken cancellationToken)
+    protected override ValueTask OnCompletedAsyncCore(Result result)
     {
         if (onCompletedAsync is null)
         {
@@ -45,6 +45,6 @@ internal sealed class AnonymousAsyncObserver<T>(Func<T, CancellationToken, Value
             return default;
         }
         
-        return onCompletedAsync.Invoke(result, cancellationToken);
+        return onCompletedAsync.Invoke(result);
     }
 }

@@ -10,7 +10,7 @@ public static partial class AsyncObservable
     {
         public AsyncObservable<T> Do(Func<T, CancellationToken, ValueTask>? onNext, 
                                      Func<Exception, CancellationToken, ValueTask>? onErrorResume = null,
-                                     Func<Result, CancellationToken, ValueTask>? onCompleted = null)
+                                     Func<Result, ValueTask>? onCompleted = null)
         {
             return Create<T>(async (observer, subscribeToken) =>
             {
@@ -22,8 +22,8 @@ public static partial class AsyncObservable
                     ? async (ex, token) => { await onErrorResume(ex, token); await observer.OnErrorResumeAsync(ex, token); }
                     : observer.OnErrorResumeAsync;
 
-                Func<Result, CancellationToken, ValueTask> onCompletedAsync = onCompleted != null
-                    ? async (result, token) => { await onCompleted(result, token); await observer.OnCompletedAsync(result, token); }
+                Func<Result, ValueTask> onCompletedAsync = onCompleted != null
+                    ? async result => { await onCompleted(result); await observer.OnCompletedAsync(result); }
                     : observer.OnCompletedAsync;
 
                 return await @this.SubscribeAsync(onNextAsync, onErrorResumeAsync, onCompletedAsync, subscribeToken);
@@ -44,8 +44,8 @@ public static partial class AsyncObservable
                     ? (ex, token) => { onErrorResume(ex); return observer.OnErrorResumeAsync(ex, token); }
                     : observer.OnErrorResumeAsync;
 
-                Func<Result, CancellationToken, ValueTask> onCompletedAsync = onCompleted != null
-                    ? (result, token) => { onCompleted(result); return observer.OnCompletedAsync(result, token); }
+                Func<Result, ValueTask> onCompletedAsync = onCompleted != null
+                    ? result => { onCompleted(result); return observer.OnCompletedAsync(result); }
                     : observer.OnCompletedAsync;
 
                 return await @this.SubscribeAsync(onNextAsync, onErrorResumeAsync, onCompletedAsync, subscribeToken);

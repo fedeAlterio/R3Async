@@ -11,7 +11,7 @@ public static class AsyncObservableSubscribeExtensions
     {
         public ValueTask<IAsyncDisposable> SubscribeAsync(Func<T, CancellationToken, ValueTask> onNextAsync,
                                                           Func<Exception, CancellationToken, ValueTask>? onErrorResumeAsync = null,
-                                                          Func<Result, CancellationToken, ValueTask>? onCompletedAsync = null,
+                                                          Func<Result, ValueTask>? onCompletedAsync = null,
                                                           CancellationToken cancellationToken = default)
         {
             if (source is null)

@@ -136,7 +136,7 @@ public class DoTest
         {
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(2, token);
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -144,7 +144,7 @@ public class DoTest
         var doObservable = observable.Do(
             onNext: null,
             onErrorResume: null,
-            onCompleted: async (result, token) =>
+            onCompleted: async result =>
             {
                 await Task.Yield();
                 completionResults.Add(result.IsSuccess);
@@ -155,7 +155,7 @@ public class DoTest
         await using var subscription = await doObservable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result, token) => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.SetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await completedTcs.Task;
@@ -171,7 +171,7 @@ public class DoTest
         {
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(2, token);
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -186,7 +186,7 @@ public class DoTest
         await using var subscription = await doObservable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result, token) => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.SetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await completedTcs.Task;
@@ -204,7 +204,7 @@ public class DoTest
             await observer.OnNextAsync(1, token);
             await observer.OnErrorResumeAsync(expectedException, token);
             await observer.OnNextAsync(2, token);
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -223,7 +223,7 @@ public class DoTest
                 await Task.Yield();
                 onErrorCalls.Add(ex);
             },
-            onCompleted: async (result, token) =>
+            onCompleted: async result =>
             {
                 await Task.Yield();
                 onCompletedCalls.Add(result.IsSuccess);
@@ -235,7 +235,7 @@ public class DoTest
         await using var subscription = await doObservable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => errorTcs.SetResult(ex),
-            async (result, token) => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.SetResult(result.IsSuccess),
             CancellationToken.None);
         
         await errorTcs.Task;
@@ -256,7 +256,7 @@ public class DoTest
             await observer.OnNextAsync(1, token);
             await observer.OnErrorResumeAsync(expectedException, token);
             await observer.OnNextAsync(2, token);
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -275,7 +275,7 @@ public class DoTest
         await using var subscription = await doObservable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => errorTcs.SetResult(ex),
-            async (result, token) => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.SetResult(result.IsSuccess),
             CancellationToken.None);
         
         await errorTcs.Task;
@@ -443,7 +443,7 @@ public class DoTest
     {
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
-            await observer.OnCompletedAsync(Result.Success, token);
+            await observer.OnCompletedAsync(Result.Success);
             return AsyncDisposable.Empty;
         });
 
@@ -455,7 +455,7 @@ public class DoTest
         await using var subscription = await doObservable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result, token) => tcs.SetResult(true),
+            async result => tcs.SetResult(true),
             CancellationToken.None);
         
         await tcs.Task;

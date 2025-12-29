@@ -10,7 +10,7 @@ internal sealed class WrappedAsyncObserver<T>(AsyncObserver<T> observer) : Async
 
     protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken) => observer.OnErrorResumeAsync(error, cancellationToken);
 
-    protected override ValueTask OnCompletedAsyncCore(Result result, CancellationToken cancellationToken) => observer.OnCompletedAsync(result, cancellationToken);
+    protected override ValueTask OnCompletedAsyncCore(Result result) => observer.OnCompletedAsync(result);
 }
 
 public static partial class AsyncObservable
