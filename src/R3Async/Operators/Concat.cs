@@ -7,13 +7,104 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
-    extension<T>(AsyncObservable<AsyncObservable<T>> @this)
+    public static AsyncObservable<T> Concat<T>(this AsyncObservable<AsyncObservable<T>> @this) => new ConcatObservablesObservable<T>(@this);
+    public static AsyncObservable<T> Concat<T>(this IEnumerable<AsyncObservable<T>> @this) => new ConcatEnumerableObservable<T>(@this);
+    public static AsyncObservable<T> Concat<T>(this AsyncObservable<T> @this, AsyncObservable<T> second) => new ConcatEnumerableObservable<T>([@this, second]);
+}
+
+internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<T>> observables) : AsyncObservable<T>
+{
+    readonly IEnumerable<AsyncObservable<T>> _observables = observables;
+
+    protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
     {
-        public AsyncObservable<T> Concat() => new ConcatObservable<T>(@this);
+        var subscription = new ConcatEnumerableSubscription(this, observer);
+        try
+        {
+            await subscription.SubscribeNextAsync();
+        }
+        catch 
+        {
+            await subscription.DisposeAsync();
+            throw;
+        }
+
+        return subscription;
+    }
+
+    sealed class ConcatEnumerableSubscription(ConcatEnumerableObservable<T> parent, AsyncObserver<T> observer) : IAsyncDisposable
+    {
+        readonly IEnumerator<AsyncObservable<T>> _enumerator = parent._observables.GetEnumerator();
+        readonly SerialAsyncDisposable _innerDisposable = new();
+        readonly CancellationTokenSource _cts = new();
+        int _disposed;
+
+        public async ValueTask SubscribeNextAsync()
+        {
+            try
+            {
+                if (_enumerator.MoveNext())
+                {
+                    var current = _enumerator.Current;
+                    var subscription = await current!.SubscribeAsync(OnInnerNextAsync, OnInnerErrorResumeAsync,
+                                                                     result => result.IsFailure 
+                                                                         ? CompleteAsync(result)
+                                                                         : SubscribeNextAsync(),
+                                                                     _cts.Token);
+
+                    await _innerDisposable.SetDisposableAsync(subscription);
+                }
+                else
+                {
+                    await CompleteAsync(Result.Success);
+                }
+            }
+            catch (Exception e)
+            {
+                await CompleteAsync(Result.Failure(e));
+            }
+        }
+
+        async ValueTask OnInnerErrorResumeAsync(Exception exception, CancellationToken cancellationToken)
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cancellationToken);
+            await observer.OnErrorResumeAsync(exception, linkedCts.Token);
+        }
+
+        async ValueTask OnInnerNextAsync(T value, CancellationToken cancellationToken)
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cancellationToken);
+            await observer.OnNextAsync(value, linkedCts.Token);
+        }
+
+        async ValueTask CompleteAsync(Result? result)
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+            {
+                if (result?.Exception is not null and var exception)
+                {
+                    UnhandledExceptionHandler.OnUnhandledException(exception);
+                }
+
+                return;
+            }
+            
+            if (result is not null)
+            {
+                await observer.OnCompletedAsync(result.Value);
+            }
+
+            _cts.Cancel();
+            await _innerDisposable.DisposeAsync();
+            _enumerator.Dispose();
+            _cts.Dispose();
+        }
+
+        public ValueTask DisposeAsync() => CompleteAsync(null);
     }
 }
 
-internal sealed class ConcatObservable<T>(AsyncObservable<AsyncObservable<T>> source) : AsyncObservable<T>
+internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObservable<T>> source) : AsyncObservable<T>
 {
     protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
     {
@@ -36,7 +127,7 @@ internal sealed class ConcatObservable<T>(AsyncObservable<AsyncObservable<T>> so
         readonly Queue<AsyncObservable<T>> _buffer = new();
         readonly CancellationTokenSource _disposeCts = new();
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
-        readonly SerialDisposable _innerDisposable = new();
+        readonly SerialAsyncDisposable _innerAsyncDisposable = new();
         readonly AsyncObserver<T> _observer = observer;
         bool _outerCompleted;
         int _disposed;
@@ -89,7 +180,7 @@ internal sealed class ConcatObservable<T>(AsyncObservable<AsyncObservable<T>> so
             try
             {
                 var innerSubscription = await currentInner.SubscribeAsync(new ConcatInnerObserver(this), _disposeCts.Token);
-                await _innerDisposable.SetDisposableAsync(innerSubscription);
+                await _innerAsyncDisposable.SetDisposableAsync(innerSubscription);
             }
             catch (Exception e)
             {
@@ -134,13 +225,13 @@ internal sealed class ConcatObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 return;
             }
 
-            _disposeCts.Cancel();
-            await _outerDisposable.DisposeAsync();
-            await _innerDisposable.DisposeAsync();
             if (result is not null)
             {
                 await _observer.OnCompletedAsync(result.Value);
             }
+            _disposeCts.Cancel();
+            await _outerDisposable.DisposeAsync();
+            await _innerAsyncDisposable.DisposeAsync();
             _disposeCts.Dispose();
         }
 

@@ -10,7 +10,7 @@ public static partial class AsyncObservable
     {
         public AsyncObservable<T> Where(Func<T, CancellationToken, ValueTask<bool>> predicate)
         {
-            return R3Async.AsyncObservable.Create<T>(async (observer, subscribeToken) =>
+            return Create<T>(async (observer, subscribeToken) =>
             {
                 return await @this.SubscribeAsync(async (x, token) =>
                 {
@@ -24,7 +24,7 @@ public static partial class AsyncObservable
 
         public AsyncObservable<T> Where(Func<T, bool> predicate)
         {
-            return R3Async.AsyncObservable.Create<T>(async (observer, subscribeToken) =>
+            return Create<T>(async (observer, subscribeToken) =>
             {
                 return await @this.SubscribeAsync((x, token) =>
                 {

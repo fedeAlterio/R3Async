@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace R3Async;
-public class SerialDisposable : IAsyncDisposable
+public class SerialAsyncDisposable : IAsyncDisposable
 {
     IAsyncDisposable? _current;
 

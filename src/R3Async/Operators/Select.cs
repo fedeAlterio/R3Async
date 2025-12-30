@@ -10,7 +10,7 @@ public static partial class AsyncObservable
     {
         public AsyncObservable<TDest> Select<TDest>(Func<T, CancellationToken, ValueTask<TDest>> selector)
         {
-            return R3Async.AsyncObservable.Create<TDest>(async (observer, subscribeToken) =>
+            return Create<TDest>(async (observer, subscribeToken) =>
             {
                 return await @this.SubscribeAsync(async (x, token) =>
                 {
@@ -22,7 +22,7 @@ public static partial class AsyncObservable
 
         public AsyncObservable<TDest> Select<TDest>(Func<T, TDest> selector)
         {
-            return R3Async.AsyncObservable.Create<TDest>(async (observer, subscribeToken) =>
+            return Create<TDest>(async (observer, subscribeToken) =>
             {
                 return await @this.SubscribeAsync((x, token) =>
                 {
