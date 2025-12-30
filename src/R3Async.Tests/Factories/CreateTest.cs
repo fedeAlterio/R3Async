@@ -15,7 +15,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<int>();
+        var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var subscription = await observable.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
         var result = await tcs.Task;
         result.ShouldBe(1);
@@ -48,7 +48,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -72,7 +72,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<Exception>();
+        var tcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -101,7 +101,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<Exception>();
+        var tcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -129,7 +129,7 @@ public class CreateTest
             });
         });
 
-        var tcs = new TaskCompletionSource<int>();
+        var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var subscription = await observable.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
@@ -147,7 +147,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<int>();
+        var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var subscription = await observable.SubscribeAsync(async (x, token) => tcs.SetResult(x), cts.Token);
         
         await cts.CancelAsync();
@@ -170,7 +170,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -192,7 +192,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<int>();
+        var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var subscription = await observable.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
         
         var result = await tcs.Task;
@@ -210,7 +210,7 @@ public class CreateTest
             return AsyncDisposable.Empty;
         });
 
-        var tcs = new TaskCompletionSource<Exception>();
+        var tcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) =>

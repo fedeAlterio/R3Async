@@ -8,7 +8,7 @@ public class WhereTest
     [Fact]
     public async Task SyncPredicateFilterTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -31,7 +31,7 @@ public class WhereTest
     [Fact]
     public async Task AsyncPredicateFilterTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -59,7 +59,7 @@ public class WhereTest
     [Fact]
     public async Task SyncPredicateAllPassTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(2, token);
@@ -80,7 +80,7 @@ public class WhereTest
     [Fact]
     public async Task SyncPredicateNonePassTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -111,7 +111,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(x => x % 2 == 0);
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -137,7 +137,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(async (x, token) => x > 1);
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -154,7 +154,7 @@ public class WhereTest
     public async Task SyncPredicateErrorPropagationTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -165,7 +165,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(x => x % 2 == 0);
-        var errorTcs = new TaskCompletionSource<Exception>();
+        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -183,7 +183,7 @@ public class WhereTest
     public async Task AsyncPredicateErrorPropagationTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -194,7 +194,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(async (x, token) => x > 2);
-        var errorTcs = new TaskCompletionSource<Exception>();
+        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -212,7 +212,7 @@ public class WhereTest
     public async Task SyncPredicateExceptionTest()
     {
         var expectedException = new InvalidOperationException("predicate failed");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -229,7 +229,7 @@ public class WhereTest
             return true;
         });
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -247,7 +247,7 @@ public class WhereTest
     public async Task AsyncPredicateExceptionTest()
     {
         var expectedException = new InvalidOperationException("predicate failed");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -265,7 +265,7 @@ public class WhereTest
             return true;
         });
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -295,7 +295,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(x => x % 2 == 0);
-        var tcs = new TaskCompletionSource<int>();
+        var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var subscription = await filtered.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
@@ -319,7 +319,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(async (x, token) => x % 2 == 0);
-        var tcs = new TaskCompletionSource<int>();
+        var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var subscription = await filtered.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
@@ -330,7 +330,7 @@ public class WhereTest
     [Fact]
     public async Task ChainedWhereTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             for (int i = 1; i <= 10; i++)
@@ -361,7 +361,7 @@ public class WhereTest
         });
 
         var filtered = observable.Where(x => x % 2 == 0);
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
