@@ -82,6 +82,7 @@ public class ToAsyncEnumerableTest
         IAsyncDisposable? subscription = null;
         subscription = await observable.SubscribeAsync(async (x, token) =>
         {
+            while (Volatile.Read(ref subscription) is null) await Task.Yield();
             // Dispose reentrantly from within OnNext
             await subscription.DisposeAsync();
             onNextCalled.SetResult();
