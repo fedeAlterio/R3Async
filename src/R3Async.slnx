@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="R3Async.ConsolePlayground/R3Async.ConsolePlayground.csproj" Id="642851e3-1cc9-4292-9651-2bdb32f42616" />
   <Project Path="R3Async.Tests/R3Async.Tests.csproj" Id="6aa55beb-17e6-4c8f-adbd-d152d7426cdd" />
   <Project Path="R3Async/R3Async.csproj" />
 </Solution>

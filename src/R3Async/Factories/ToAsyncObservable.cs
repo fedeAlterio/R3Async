@@ -44,9 +44,9 @@ public static partial class AsyncObservable
 
             var subcription = AsyncDisposable.Create(async () =>
             {
+                cts.Cancel();
                 if (!reentrant.Value)
                 {
-                    cts.Cancel();
                     await task;
                 }
                 cts.Dispose();
@@ -95,9 +95,9 @@ public static partial class AsyncObservable
 
             var subcription = AsyncDisposable.Create(async () =>
             {
+                cts.Cancel();
                 if (!reentrant.Value)
                 {
-                    cts.Cancel();
                     await task;
                 }
                 cts.Dispose();
@@ -143,9 +143,9 @@ public static partial class AsyncObservable
             }
             var subcription = AsyncDisposable.Create(async () =>
             {
+                cts.Cancel();
                 if (!reentrant.Value)
                 {
-                    cts.Cancel();
                     await task;
                 }
                 cts.Dispose();
