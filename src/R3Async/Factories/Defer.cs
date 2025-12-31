@@ -15,4 +15,13 @@ public static partial class AsyncObservable
             return await observable.SubscribeAsync(observer.Wrap(), token);
         });
     }
+
+    public static AsyncObservable<T> Defer<T>(Func<AsyncObservable<T>> factory)
+    {
+        return Create<T>(async (observer, token) =>
+        {
+            var observable = factory();
+            return await observable.SubscribeAsync(observer.Wrap(), token);
+        });
+    }
 }
