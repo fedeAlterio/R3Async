@@ -127,7 +127,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         readonly Queue<AsyncObservable<T>> _buffer = new();
         readonly CancellationTokenSource _disposeCts = new();
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
-        readonly SerialAsyncDisposable _innerAsyncDisposable = new();
+        readonly SerialAsyncDisposable _innerSubscription = new();
         readonly AsyncObserver<T> _observer = observer;
         bool _outerCompleted;
         int _disposed;
@@ -180,7 +180,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
             try
             {
                 var innerSubscription = await currentInner.SubscribeAsync(new ConcatInnerObserver(this), _disposeCts.Token);
-                await _innerAsyncDisposable.SetDisposableAsync(innerSubscription);
+                await _innerSubscription.SetDisposableAsync(innerSubscription);
             }
             catch (Exception e)
             {
@@ -231,7 +231,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
             }
             _disposeCts.Cancel();
             await _outerDisposable.DisposeAsync();
-            await _innerAsyncDisposable.DisposeAsync();
+            await _innerSubscription.DisposeAsync();
             _disposeCts.Dispose();
         }
 
