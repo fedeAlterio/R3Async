@@ -39,12 +39,6 @@ public static partial class AsyncObservable
 
         protected override async ValueTask DisposeAsyncCore()
         {
-            if (!Subscribed)
-            {
-                await base.DisposeAsyncCore();
-                return;
-            }
-
             try
             {
                 finallySync();
@@ -69,12 +63,6 @@ public static partial class AsyncObservable
 
         protected override async ValueTask DisposeAsyncCore()
         {
-            if (!Subscribed)
-            {
-                await base.DisposeAsyncCore();
-                return;
-            }
-
             try
             {
                 await finallyAsync();
