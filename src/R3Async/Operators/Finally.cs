@@ -1,8 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using R3Async.Internals;
-
 namespace R3Async;
 
 public static partial class AsyncObservable
@@ -41,6 +39,12 @@ public static partial class AsyncObservable
 
         protected override async ValueTask DisposeAsyncCore()
         {
+            if (!Subscribed)
+            {
+                await base.DisposeAsyncCore();
+                return;
+            }
+
             try
             {
                 finallySync();
@@ -65,6 +69,12 @@ public static partial class AsyncObservable
 
         protected override async ValueTask DisposeAsyncCore()
         {
+            if (!Subscribed)
+            {
+                await base.DisposeAsyncCore();
+                return;
+            }
+
             try
             {
                 await finallyAsync();

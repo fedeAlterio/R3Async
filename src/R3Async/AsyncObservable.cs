@@ -34,6 +34,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     TaskCompletionSource<object?>? _allCallsCompletedTcs;
     
     IAsyncDisposable? _sourceSubscription;
+    protected bool Subscribed => _sourceSubscription is not null;
     internal ValueTask SetSourceSubscriptionAsync(IAsyncDisposable? value) => SingleAssignmentAsyncDisposable.SetDisposableAsync(ref _sourceSubscription, value);
 
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
