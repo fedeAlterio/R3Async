@@ -28,13 +28,12 @@ public abstract class AsyncObservable<T>
 
 public abstract class AsyncObserver<T> : IAsyncDisposable
 {
-    readonly AsyncLocal<bool> _reentrantCallPending = new();
+    readonly AsyncLocal<int> _reentrantCallsCount = new();
     readonly CancellationTokenSource _disposeCts = new();
     bool _callPending;
     TaskCompletionSource<object?>? _allCallsCompletedTcs;
     
     IAsyncDisposable? _sourceSubscription;
-    protected bool Subscribed => _sourceSubscription is not null;
     internal ValueTask SetSourceSubscriptionAsync(IAsyncDisposable? value) => SingleAssignmentAsyncDisposable.SetDisposableAsync(ref _sourceSubscription, value);
 
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
@@ -65,7 +64,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
 
     bool TryEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
     {
-        lock (_reentrantCallPending)
+        lock (_reentrantCallsCount)
         {
             if (_disposeCts.IsCancellationRequested || cancellationToken.IsCancellationRequested)
             {
@@ -73,14 +72,14 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
                 return false;
             }
 
-            if (_callPending)
+            int reentrantCallsCount = _reentrantCallsCount.Value;
+            if (_callPending && reentrantCallsCount is 0)
             {
                 throw new InvalidOperationException($"Concurrent calls of {nameof(OnNextAsync)}, {nameof(OnErrorResumeAsync)}, {nameof(OnCompletedAsync)} are not allowed. There is already a call pending");
             }
-            Debug.Assert(!_reentrantCallPending.Value);
 
             _callPending = true;
-            _reentrantCallPending.Value = true;
+            _reentrantCallsCount.Value = reentrantCallsCount + 1;
 
             linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
             return true;
@@ -89,12 +88,12 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
 
     bool ExitOnSomethingCall()
     {
-        lock (_reentrantCallPending)
+        lock (_reentrantCallsCount)
         {
+            int reentrantCallsCount = --_reentrantCallsCount.Value;
             Debug.Assert(_callPending);
-            Debug.Assert(_reentrantCallPending.Value);
-            _callPending = false;
-            _reentrantCallPending.Value = false;
+            Debug.Assert(reentrantCallsCount >= 0);
+            _callPending = reentrantCallsCount > 0;
             if (_allCallsCompletedTcs is not null)
             {
                 _allCallsCompletedTcs.SetResult(null);
@@ -174,12 +173,12 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Task? allOnSomethingCallsCompleted = null;
-        lock (_reentrantCallPending)
+        lock (_reentrantCallsCount)
         {
             if (_disposeCts.IsCancellationRequested) return;
 
             _disposeCts.Cancel();
-            if (!_reentrantCallPending.Value && _callPending)
+            if (_reentrantCallsCount.Value == 0 && _callPending)
             {
                 _allCallsCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 allOnSomethingCallsCompleted = _allCallsCompletedTcs.Task;
