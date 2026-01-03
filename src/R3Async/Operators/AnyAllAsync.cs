@@ -30,13 +30,10 @@ public static partial class AsyncObservable
 
     sealed class AnyAsyncObserver<T>(Func<T, bool>? predicate, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, bool>(cancellationToken)
     {
-        bool _hasMatch;
-
         protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
         {
             if (predicate is null || predicate(value))
             {
-                _hasMatch = true;
                 await TrySetCompleted(true);
             }
         }

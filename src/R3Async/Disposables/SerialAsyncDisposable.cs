@@ -36,8 +36,6 @@ public class SerialAsyncDisposable : IAsyncDisposable
 
             field = exchangedCurrent;
         }
-
-        return default;
     }
 
 
