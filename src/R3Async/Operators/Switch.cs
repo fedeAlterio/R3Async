@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using R3Async.Internals;
 
 namespace R3Async;
 
@@ -38,6 +39,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         IAsyncDisposable? _currentInnerSubscription;
 
         readonly object _gate = new();
+        readonly AsyncGate _observerOnSomethingGate = new();
         bool _outerCompleted;
         bool _disposed;
 
@@ -141,13 +143,19 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         public async ValueTask OnNextInnerAsync(T value, CancellationToken cancellationToken)
         {
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, cancellationToken);
-            await _observer.OnNextAsync(value, linkedCts.Token);
+            using (await _observerOnSomethingGate.LockAsync())
+            {
+                await _observer.OnNextAsync(value, linkedCts.Token);
+            }
         }
 
         public async ValueTask OnErrorInnerAsync(Exception error, CancellationToken cancellationToken)
         {
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, cancellationToken);
-            await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+            using (await _observerOnSomethingGate.LockAsync())
+            {
+                await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+            }
         }
 
         async ValueTask CompleteAsync(Result? result)
@@ -187,8 +195,14 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         {
             protected override ValueTask OnNextAsyncCore(AsyncObservable<T> value, CancellationToken cancellationToken)
                 => subscription.OnNextOuterAsync(value);
-            protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
-                => subscription._observer.OnErrorResumeAsync(error, cancellationToken);
+            protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            {
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposeCts.Token, cancellationToken);
+                using (await subscription._observerOnSomethingGate.LockAsync())
+                {
+                    await subscription._observer.OnErrorResumeAsync(error, linkedCts.Token);
+                }
+            }
             protected override ValueTask OnCompletedAsyncCore(Result result)
                 => subscription.OnCompletedOuterAsync(result);
         }
