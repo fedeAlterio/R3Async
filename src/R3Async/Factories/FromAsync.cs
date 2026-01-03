@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using R3Async.Internals;
 
 namespace R3Async;
 
@@ -12,47 +13,12 @@ public static partial class AsyncObservable
 
         return Create<T>((observer, _) =>
         {
-            var cts = new CancellationTokenSource();
-            AsyncLocal<bool> reentrant = new();
-            Task task = Core(cts.Token);
-
-            async Task Core(CancellationToken cancellationToken)
+            return new(AsyncOperationSubscription.CreateAndRun(async (obs, token) =>
             {
-                try
-                {
-                    reentrant.Value = true;
-                    var result = await factory(cancellationToken);
-                    await observer.OnNextAsync(result, cancellationToken);
-                    await observer.OnCompletedAsync(Result.Success);
-                }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception e)
-                {
-                    try
-                    {
-                        await observer.OnCompletedAsync(Result.Failure(e));
-                    }
-                    catch (Exception exception)
-                    {
-                        UnhandledExceptionHandler.OnUnhandledException(exception);
-                    }
-                }
-            }
-
-            var subscription = AsyncDisposable.Create(async () =>
-            {
-                cts.Cancel();
-                if (!reentrant.Value)
-                {
-                    await task;
-                }
-
-                cts.Dispose();
-            });
-
-            return new ValueTask<IAsyncDisposable>(subscription);
+                var result = await factory(token);
+                await obs.OnNextAsync(result, token);
+                await obs.OnCompletedAsync(Result.Success);
+            }, observer));
         });
     }
 }

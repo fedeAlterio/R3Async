@@ -12,47 +12,14 @@ public static partial class AsyncObservable
     {
         return Create<T>((observer, _) =>
         {
-            var cts = new CancellationTokenSource();
-            AsyncLocal<bool> reentrant = new();
-            Task task = Core(cts.Token);
-
-            async Task Core(CancellationToken cancellationToken)
+            var subscription = AsyncOperationSubscription.CreateAndRun(async (obs, cancellationToken) =>
             {
-                try
-                {
-                    reentrant.Value = true;
-                    var result = await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
-                    await observer.OnNextAsync(result, cancellationToken);
-                    await observer.OnCompletedAsync(Result.Success);
-                }
-                catch (OperationCanceledException)
-                {
+                var result = await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
+                await obs.OnNextAsync(result, cancellationToken);
+                await obs.OnCompletedAsync(Result.Success);
+            }, observer);
 
-                }
-                catch (Exception e)
-                {
-                    try
-                    {
-                        await observer.OnCompletedAsync(Result.Failure(e));
-                    }
-                    catch (Exception exception)
-                    {
-                        UnhandledExceptionHandler.OnUnhandledException(exception);
-                    }
-                }
-            }
-
-            var subcription = AsyncDisposable.Create(async () =>
-            {
-                cts.Cancel();
-                if (!reentrant.Value)
-                {
-                    await task;
-                }
-                cts.Dispose();
-            });
-
-            return new ValueTask<IAsyncDisposable>(subcription);
+            return new ValueTask<IAsyncDisposable>(subscription);
         });
     }
 
@@ -60,50 +27,17 @@ public static partial class AsyncObservable
     {
         return Create<T>((observer, _) =>
         {
-            var cts = new CancellationTokenSource();
-            AsyncLocal<bool> reentrant = new();
-            Task task = Core(cts.Token);
-
-            async Task Core(CancellationToken cancellationToken)
+            var subscription = AsyncOperationSubscription.CreateAndRun(async (obs, cancellationToken) =>
             {
-                try
+                await foreach (var value in @this.WithCancellation(cancellationToken))
                 {
-                    reentrant.Value = true;
-                    await foreach (var value in @this.WithCancellation(cancellationToken))
-                    {
-                        await observer.OnNextAsync(value, cancellationToken);
-                    }
-
-                    await observer.OnCompletedAsync(Result.Success);
+                    await obs.OnNextAsync(value, cancellationToken);
                 }
-                catch (OperationCanceledException)
-                {
 
-                }
-                catch (Exception e)
-                {
-                    try
-                    {
-                        await observer.OnCompletedAsync(Result.Failure(e));
-                    }
-                    catch (Exception exception)
-                    {
-                        UnhandledExceptionHandler.OnUnhandledException(exception);
-                    }
-                }
-            }
+                await obs.OnCompletedAsync(Result.Success);
+            }, observer);
 
-            var subcription = AsyncDisposable.Create(async () =>
-            {
-                cts.Cancel();
-                if (!reentrant.Value)
-                {
-                    await task;
-                }
-                cts.Dispose();
-            });
-
-            return new ValueTask<IAsyncDisposable>(subcription);
+            return new ValueTask<IAsyncDisposable>(subscription);
         });
     }
 
@@ -111,46 +45,18 @@ public static partial class AsyncObservable
     {
         return Create<T>((observer, _) =>
         {
-            var cts = new CancellationTokenSource();
-            AsyncLocal<bool> reentrant = new();
-            Task task = Core(cts.Token);
-            async Task Core(CancellationToken cancellationToken)
+            var subscription = AsyncOperationSubscription.CreateAndRun(async (obs, cancellationToken) =>
             {
-                try
+                foreach (var value in @this)
                 {
-                    reentrant.Value = true;
-                    foreach (var value in @this)
-                    {
-                        if (cancellationToken.IsCancellationRequested) return;
-                        await observer.OnNextAsync(value, cancellationToken);
-                    }
-                    await observer.OnCompletedAsync(Result.Success);
+                    if (cancellationToken.IsCancellationRequested) return;
+                    await obs.OnNextAsync(value, cancellationToken);
                 }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception e)
-                {
-                    try
-                    {
-                        await observer.OnCompletedAsync(Result.Failure(e));
-                    }
-                    catch (Exception exception)
-                    {
-                        UnhandledExceptionHandler.OnUnhandledException(exception);
-                    }
-                }
-            }
-            var subcription = AsyncDisposable.Create(async () =>
-            {
-                cts.Cancel();
-                if (!reentrant.Value)
-                {
-                    await task;
-                }
-                cts.Dispose();
-            });
-            return new ValueTask<IAsyncDisposable>(subcription);
+
+                await obs.OnCompletedAsync(Result.Success);
+            }, observer);
+
+            return new ValueTask<IAsyncDisposable>(subscription);
         });
     }
 }
