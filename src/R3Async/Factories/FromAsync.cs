@@ -13,7 +13,7 @@ public static partial class AsyncObservable
 
         return Create<T>((observer, _) =>
         {
-            return new(AsyncOperationSubscription.CreateAndRun(async (obs, token) =>
+            return new(CancelableTaskSubscription.CreateAndStart(async (obs, token) =>
             {
                 var result = await factory(token);
                 await obs.OnNextAsync(result, token);

@@ -12,7 +12,7 @@ public static partial class AsyncObservable
     {
         return Create<T>((observer, _) =>
         {
-            var subscription = AsyncOperationSubscription.CreateAndRun(async (obs, cancellationToken) =>
+            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, cancellationToken) =>
             {
                 var result = await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
                 await obs.OnNextAsync(result, cancellationToken);
@@ -27,7 +27,7 @@ public static partial class AsyncObservable
     {
         return Create<T>((observer, _) =>
         {
-            var subscription = AsyncOperationSubscription.CreateAndRun(async (obs, cancellationToken) =>
+            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, cancellationToken) =>
             {
                 await foreach (var value in @this.WithCancellation(cancellationToken))
                 {
@@ -45,7 +45,7 @@ public static partial class AsyncObservable
     {
         return Create<T>((observer, _) =>
         {
-            var subscription = AsyncOperationSubscription.CreateAndRun(async (obs, cancellationToken) =>
+            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, cancellationToken) =>
             {
                 foreach (var value in @this)
                 {

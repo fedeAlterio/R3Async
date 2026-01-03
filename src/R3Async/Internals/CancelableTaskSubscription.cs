@@ -4,16 +4,16 @@ using System.Threading.Tasks;
 
 namespace R3Async.Internals;
 
-internal static class AsyncOperationSubscription
+internal static class CancelableTaskSubscription
 {
-    public static AsyncOperationSubscription<T> CreateAndRun<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> runAsyncCore, AsyncObserver<T> observer)
+    public static CancelableTaskSubscription<T> CreateAndStart<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> runAsyncCore, AsyncObserver<T> observer)
     {
-        var ret = new AnonymousAsyncOperationSubscription<T>(runAsyncCore, observer);
+        var ret = new AnonymousCancelableTaskSubscription<T>(runAsyncCore, observer);
         ret.Run();
         return ret;
     }
 
-    class AnonymousAsyncOperationSubscription<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> runAsyncCore, AsyncObserver<T> observer) : AsyncOperationSubscription<T>(observer)
+    class AnonymousCancelableTaskSubscription<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> runAsyncCore, AsyncObserver<T> observer) : CancelableTaskSubscription<T>(observer)
     {
         protected override ValueTask RunAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
@@ -22,7 +22,7 @@ internal static class AsyncOperationSubscription
     }
 }
 
-internal abstract class AsyncOperationSubscription<T>(AsyncObserver<T> observer) : IAsyncDisposable
+internal abstract class CancelableTaskSubscription<T>(AsyncObserver<T> observer) : IAsyncDisposable
 {
     readonly TaskCompletionSource<bool> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationTokenSource _cts = new();
