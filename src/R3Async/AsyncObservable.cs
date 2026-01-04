@@ -30,7 +30,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
 {
     readonly AsyncLocal<int> _reentrantCallsCount = new();
     readonly CancellationTokenSource _disposeCts = new();
-    bool _callPending;
+    int _callsCount;
     TaskCompletionSource<object?>? _allCallsCompletedTcs;
     
     IAsyncDisposable? _sourceSubscription;
@@ -73,12 +73,12 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             }
 
             int reentrantCallsCount = _reentrantCallsCount.Value;
-            if (_callPending && reentrantCallsCount is 0)
+            if (_callsCount != reentrantCallsCount)
             {
                 throw new InvalidOperationException($"Concurrent calls of {nameof(OnNextAsync)}, {nameof(OnErrorResumeAsync)}, {nameof(OnCompletedAsync)} are not allowed. There is already a call pending");
             }
 
-            _callPending = true;
+            _callsCount++;
             _reentrantCallsCount.Value = reentrantCallsCount + 1;
 
             linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
@@ -90,10 +90,10 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     {
         lock (_reentrantCallsCount)
         {
+            _callsCount--;
             int reentrantCallsCount = --_reentrantCallsCount.Value;
-            Debug.Assert(_callPending);
             Debug.Assert(reentrantCallsCount >= 0);
-            _callPending = reentrantCallsCount > 0;
+            Debug.Assert(_callsCount == reentrantCallsCount);
             if (_allCallsCompletedTcs is not null)
             {
                 _allCallsCompletedTcs.SetResult(null);
@@ -178,7 +178,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             if (_disposeCts.IsCancellationRequested) return;
 
             _disposeCts.Cancel();
-            if (_reentrantCallsCount.Value == 0 && _callPending)
+            if (_reentrantCallsCount.Value == 0 && _callsCount > 0)
             {
                 _allCallsCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 allOnSomethingCallsCompleted = _allCallsCompletedTcs.Task;
