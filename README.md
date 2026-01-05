@@ -10,7 +10,7 @@ R3Async is built on two fundamental abstractions:
 
 The core observable type that represents an asynchronous reactive stream. It provides:
 
-- **`SubscribeAsync`** - Subscribe to the observable stream with an observer
+- **`SubscribeAsync`** - Subscribe to the observable stream with an observer or lambda callbacks
 
 ```csharp
 public abstract class AsyncObservable<T>
@@ -19,6 +19,38 @@ public abstract class AsyncObservable<T>
         AsyncObserver<T> observer, 
         CancellationToken cancellationToken);
 }
+```
+
+`SubscribeAsync` also has convenient overloads that accept lambda functions instead of requiring a full observer implementation:
+
+```csharp
+// Subscribe with async lambdas for all callbacks
+await observable.SubscribeAsync(
+    onNextAsync: async (value, ct) => 
+    {
+        await ProcessValueAsync(value, ct);
+        Console.WriteLine(value);
+    },
+    onErrorResumeAsync: async (error, ct) => 
+    {
+        await LogErrorAsync(error, ct);
+        Console.WriteLine($"Error: {error}");
+    },
+    onCompletedAsync: async (result) => 
+    {
+        Console.WriteLine($"Completed with {result}");
+    },
+    cancellationToken: cancellationToken
+);
+
+// Subscribe with simple async lambda
+await observable.SubscribeAsync(async (value, ct) => 
+{
+    Console.WriteLine(value);
+}, cancellationToken);
+
+// Subscribe with sync action
+await observable.SubscribeAsync(value => Console.WriteLine(value));
 ```
 
 **Important:** The `CancellationToken` parameter in `SubscribeAsync` is used only for the subscription operation itself, not for canceling the observable stream. To cancel an active subscription and stop the observable, await the `DisposeAsync()` method on the returned subscription:
@@ -111,7 +143,35 @@ Async methods that consume the observable and return results:
 - `ForEachAsync` - Execute action for each element
 - `ToListAsync` - Collect to list
 - `ToDictionaryAsync` - Collect to dictionary
-- `ToAsyncEnumerable` - Convert to async enumerable with support for custom Channel factories for backpressure control
+- `ToAsyncEnumerable` - Convert to async enumerable using System.Threading.Channels
+
+#### ToAsyncEnumerable and Channel Selection
+
+There is no "one way" to convert an async observable to an async enumerable - the behavior depends on backpressure semantics. For this reason, `ToAsyncEnumerable` accepts a channel factory function, allowing you to choose the appropriate channel type:
+
+```csharp
+// Rendezvous channel (capacity = 0) - strict backpressure
+// Producer waits until consumer reads each item
+await foreach (var x in observable.ToAsyncEnumerable(() => Channel.CreateBounded<int>(0)))
+{
+    // Process item
+}
+
+// Bounded channel - limited backpressure buffer
+await foreach (var x in observable.ToAsyncEnumerable(() => Channel.CreateBounded<int>(10)))
+{
+    // Process item - producer can stay up to 10 items ahead
+}
+
+// Unbounded channel - no backpressure
+// Producer never waits, all items are buffered
+await foreach (var x in observable.ToAsyncEnumerable(() => Channel.CreateUnbounded<int>()))
+{
+    // Process item
+}
+```
+
+Channels already encode the desired conversion semantics, so you have full control over buffering and backpressure behavior.
 
 ### Subjects
 
