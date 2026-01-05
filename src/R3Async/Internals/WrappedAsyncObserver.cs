@@ -12,13 +12,3 @@ internal sealed class WrappedAsyncObserver<T>(AsyncObserver<T> observer) : Async
 
     protected override ValueTask OnCompletedAsyncCore(Result result) => observer.OnCompletedAsync(result);
 }
-
-public static partial class AsyncObservable
-{
-    public static AsyncObserver<T> Wrap<T>(this AsyncObserver<T> observer)
-    {
-        return observer is null 
-            ? throw new ArgumentNullException(nameof(observer)) 
-            : new WrappedAsyncObserver<T>(observer);
-    }
-}

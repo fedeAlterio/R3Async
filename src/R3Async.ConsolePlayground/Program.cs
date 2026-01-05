@@ -1,45 +1,27 @@
-﻿using R3Async;
+﻿using System.Threading.Channels;
+using R3Async;
+using R3Async.Subjects;
 
-var timer1 = AsyncObservable.Interval(TimeSpan.FromSeconds(1))
-                            .Select(x => AsyncObservable.Defer(() =>
-                            {
-                                Console.WriteLine($"Subscribed to inner {x}");
-                                return AsyncObservable.Interval(TimeSpan.FromMilliseconds(100))
-                                                      .Do(y => Console.WriteLine($"Outer tick {x}. Inner tick {y}"))
-                                                      .Finally(async () =>
-                                                      {
-                                                          await Task.Delay(500);
-                                                          Console.WriteLine($"Disposed Inner {x}");
-                                                      });
-                            }))
-                            .Switch()
-                            .Finally(async () =>
-                            {
-                                await Task.Delay(500);
-                                Console.WriteLine("Disposed outer");
-                            })
-                            .Select(x => true);
+var obs = AsyncObservable.Create<int>(async (observer, token) =>
+{
+    _ = Task.Run(async () =>
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            Console.WriteLine($"Producing {i}");
+            await observer.OnNextAsync(i, CancellationToken.None);
+            Console.WriteLine($"Produced {i}");
+        }
+    });
+    return AsyncDisposable.Empty;
+});
 
-var timer2 = AsyncObservable.Interval(TimeSpan.FromMilliseconds(100))
-                            .Select(x => $"Timer 2 tick {x}")
-                            .Do(x => Console.WriteLine(x))
-                            .Select(x => true)
-                            .Finally(async () =>
-                            {
-                                Console.WriteLine("Disposing timer 2");
-                                await Task.Delay(100);
-                                Console.WriteLine("Disposed timer 2");
-                            });
 
-var merged = timer1.Merge(timer2);
-var subscription = await merged.SubscribeAsync(
-    async (x, token) => { },
-    async (ex, token) => { },
-    async result => Console.WriteLine("Completed"),
-    CancellationToken.None);
+await foreach (var x in obs.ToAsyncEnumerable(() => Channel.CreateBounded<int>(0)))
+{
+    Console.WriteLine($"Consumed {x}");
+    Console.ReadLine();
+}
 
-Console.WriteLine("AAA");
-Console.ReadLine();
-Console.WriteLine("Disposing");
-await subscription.DisposeAsync();
-Console.WriteLine("Stopped");
+
+
