@@ -1,27 +1,37 @@
 ﻿using System.Threading.Channels;
 using R3Async;
-using R3Async.Subjects;
 
-var obs = AsyncObservable.Create<int>(async (observer, token) =>
+var obs = AsyncObservable.CreateAsBackgroundJob<int>(async (observer, token) =>
 {
-    _ = Task.Run(async () =>
+    try
     {
-        for (var i = 0; i < 100; i++)
+        var i = 0;
+        while (true)
         {
-            Console.WriteLine($"Producing {i}");
-            await observer.OnNextAsync(i, CancellationToken.None);
-            Console.WriteLine($"Produced {i}");
+            token.ThrowIfCancellationRequested();
+            await observer.OnNextAsync(i++, token);
         }
-    });
-    return AsyncDisposable.Empty;
+    }
+    catch (OperationCanceledException e)
+    {
+        Console.WriteLine("Canceling");
+        await Task.Delay(2000);
+        Console.WriteLine("Canceled");
+        throw;
+    }
 });
-
 
 await foreach (var x in obs.ToAsyncEnumerable(() => Channel.CreateBounded<int>(0)))
 {
     Console.WriteLine($"Consumed {x}");
-    Console.ReadLine();
+    var line = Console.ReadLine();
+    if(line == "exit")
+        break;
 }
+
+Console.WriteLine("Breaked");
+Console.ReadLine();
+
 
 
 
