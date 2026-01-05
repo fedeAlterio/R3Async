@@ -75,7 +75,9 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             int reentrantCallsCount = _reentrantCallsCount.Value;
             if (_callsCount != reentrantCallsCount)
             {
-                throw new InvalidOperationException($"Concurrent calls of {nameof(OnNextAsync)}, {nameof(OnErrorResumeAsync)}, {nameof(OnCompletedAsync)} are not allowed. There is already a call pending");
+                UnhandledExceptionHandler.OnUnhandledException(new ConcurrentObserverCallsException());
+                linkedCts = null;
+                return false;
             }
 
             _callsCount++;
@@ -197,3 +199,5 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
 
     protected virtual ValueTask DisposeAsyncCore() => default;
 }
+
+public class ConcurrentObserverCallsException() : Exception($"Concurrent calls of {nameof(AsyncObserver<>.OnNextAsync)}, {nameof(AsyncObserver<>.OnErrorResumeAsync)}, {nameof(AsyncObserver<>.OnCompletedAsync)} are not allowed. There is already a call pending");
