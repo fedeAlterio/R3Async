@@ -18,6 +18,16 @@ public static partial class AsyncObservable
         }, true);
     }
 
+    public static AsyncObservable<Unit> ToAsyncObservable(this Task @this)
+    {
+        return CreateAsBackgroundJob<Unit>(async (obs, cancellationToken) =>
+        {
+            await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
+            await obs.OnNextAsync(Unit.Default, cancellationToken);
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
+    }
+
     public static AsyncObservable<T> ToAsyncObservable<T>(this IAsyncEnumerable<T> @this)
     {
         return CreateAsBackgroundJob<T>(async (obs, cancellationToken) =>
