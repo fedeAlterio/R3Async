@@ -15,7 +15,17 @@ public static partial class AsyncObservable
             long tick = 1;
             while (!cancellationToken.IsCancellationRequested)
             {
-                await timeProvider.Delay(period, cancellationToken);
+                if(timeProvider == TimeProvider.System)
+                {
+                    await Task.Delay(period, cancellationToken);
+                }
+                else
+                {
+                    var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    await using var _ = timeProvider.CreateTimer(x => ((TaskCompletionSource<bool>)x!).TrySetResult(true), tcs, period, Timeout.InfiniteTimeSpan);
+                    using var __ = cancellationToken.Register(x => ((TaskCompletionSource<bool>)x!).TrySetCanceled(cancellationToken), tcs);
+                    await tcs.Task;
+                }
                 yield return tick++;
             }
         }

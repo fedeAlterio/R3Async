@@ -1,16 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	  <TargetFrameworks>netstandard2.1</TargetFrameworks>
+   <TargetFrameworks>netstandard2.1;net6.0;net8.0</TargetFrameworks>
 	  <Nullable>enable</Nullable>
 	  <LangVersion>latest</LangVersion>
+
+    <!-- NuGet Packaging -->
+    <IsPackable>true</IsPackable>
+    <PackageTags>rx</PackageTags>
+    <Description>Async version of R3 (Variant of async rx.net)</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="R3Async.csproj.DotSettings" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="$(TargetFramework) == 'net6.0'">
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.0" />
+  </ItemGroup>
+
+
+	<ItemGroup>
     <PackageReference Include="PolySharp" Version="1.14.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -23,6 +33,10 @@
     <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Compat\" />
   </ItemGroup>
 
 </Project>
