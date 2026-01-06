@@ -40,7 +40,7 @@ var count = await AsyncObservable.CreateAsBackgroundJob<string>(async (observer,
 
 // Chain async transformations
 var firstLong = await AsyncObservable.Return(5)
-    .SelectAsync(async (x, ct) => 
+    .Select(async (x, ct) => 
     {
         await Task.Delay(100, ct);
         return x.ToString();
