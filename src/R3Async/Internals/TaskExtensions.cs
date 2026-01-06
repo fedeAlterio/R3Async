@@ -16,11 +16,11 @@ internal static class TaskExtensions
         }
     }
 
-    public static async Task WaitAsync<TResult>(this Task task, TimeSpan timeout, CancellationToken cancellationToken)
+    public static async Task WaitAsync(this Task task, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var tcs = new TaskCompletionSource<TResult>();
-        using (new Timer(s => ((TaskCompletionSource<TResult>)s!).TrySetException(new TimeoutException()), tcs, timeout, Timeout.InfiniteTimeSpan))
-        using (cancellationToken.Register(s => ((TaskCompletionSource<TResult>)s!).TrySetCanceled(), tcs))
+        var tcs = new TaskCompletionSource<bool>();
+        using (new Timer(s => ((TaskCompletionSource<bool>)s!).TrySetException(new TimeoutException()), tcs, timeout, Timeout.InfiniteTimeSpan))
+        using (cancellationToken.Register(s => ((TaskCompletionSource<bool>)s!).TrySetCanceled(), tcs))
         {
             await (await Task.WhenAny(task, tcs.Task).ConfigureAwait(false)).ConfigureAwait(false);
         }
