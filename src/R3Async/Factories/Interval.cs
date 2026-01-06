@@ -10,12 +10,12 @@ public static partial class AsyncObservable
 {
     public static AsyncObservable<long> Interval(TimeSpan period, TimeProvider? timeProvider = null)
     {
-        static async IAsyncEnumerable<long> PeriodicTimerImpl(TimeSpan period, TimeProvider timeProvider, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        return CreateAsBackgroundJob<long>(async (observer, cancellationToken) =>
         {
             long tick = 1;
             while (!cancellationToken.IsCancellationRequested)
             {
-                if(timeProvider == TimeProvider.System)
+                if (timeProvider is null || timeProvider == TimeProvider.System)
                 {
                     await Task.Delay(period, cancellationToken);
                 }
@@ -26,10 +26,9 @@ public static partial class AsyncObservable
                     using var __ = cancellationToken.Register(x => ((TaskCompletionSource<bool>)x!).TrySetCanceled(cancellationToken), tcs);
                     await tcs.Task;
                 }
-                yield return tick++;
-            }
-        }
 
-        return PeriodicTimerImpl(period, timeProvider ?? TimeProvider.System).ToAsyncObservable();
+                await observer.OnNextAsync(tick++, cancellationToken);
+            }
+        }, true);
     }
 }
