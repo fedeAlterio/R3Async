@@ -359,7 +359,7 @@ Console.WriteLine("Exited");
 ```
 
 This example demonstrates:
-- **CreateAsBackgroundJob** - Creates an observable that runs in the background and can properly await cancellation
+- **CreateAsBackgroundJob** - Creates an observable that runs in the background
 - **Channel-based backpressure** - Using `Channel.CreateBounded<int>(0)` ensures the producer waits when the consumer is slow
 - **Graceful cancellation** - When the consumer breaks, the producer can perform cleanup before fully terminating. _Exited_ is printed after _Canceled_
 
