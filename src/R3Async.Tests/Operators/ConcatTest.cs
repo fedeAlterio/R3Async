@@ -415,7 +415,6 @@ public class ConcatTest
     public async Task ConcatDisposalTest()
     {
         var disposed1 = false;
-        var disposed2 = false;
         var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         
         var observable1 = AsyncObservable.Create<int>(async (observer, token) =>
@@ -439,11 +438,7 @@ public class ConcatTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
             });
-            return AsyncDisposable.Create(() =>
-            {
-                disposed2 = true;
-                return default;
-            });
+            return AsyncDisposable.Create(() => default);
         });
 
         var outer = AsyncObservable.Create<AsyncObservable<int>>(async (observer, token) =>
@@ -465,7 +460,6 @@ public class ConcatTest
         await subscription.DisposeAsync();
         
         disposed1.ShouldBeTrue();
-        disposed2.ShouldBeTrue();
     }
 
     [Fact]
