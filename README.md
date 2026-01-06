@@ -4,6 +4,52 @@
 
 R3Async is the **async version** of [R3](https://github.com/Cysharp/R3), a Reactive Extensions library for .NET. While R3 provides synchronous reactive programming primitives, R3Async is built from the ground up to support fully asynchronous reactive streams using `ValueTask` and `IAsyncDisposable`.
 
+## Quick Examples
+
+R3Async provides LINQ-style operators for composing asynchronous reactive streams:
+
+```csharp
+using R3Async;
+
+// Filter, transform, and subscribe to an observable stream
+var subscription = await AsyncObservable.Interval(TimeSpan.FromSeconds(1))
+    .Where(x => x % 2 == 0)
+    .Select(x => x * 10)
+    .SubscribeAsync(value => Console.WriteLine($"Even value: {value}"));
+
+// Get the first 5 items that match a condition
+var result = await AsyncObservable.Interval(TimeSpan.FromMilliseconds(100))
+    .Where(x => x > 3)
+    .Take(5)
+    .ToListAsync(CancellationToken.None);
+// result: [4, 5, 6, 7, 8]
+
+// Process async operations in sequence
+var count = await AsyncObservable.CreateAsBackgroundJob<string>(async (observer, ct) =>
+    {
+        await observer.OnNextAsync("Hello", ct);
+        await observer.OnNextAsync("World", ct);
+        await observer.OnNextAsync("R3Async", ct);
+        await observer.OnCompletedAsync(Result.Success);
+    })
+    .Select(s => s.ToUpper())
+    .Do(s => Console.WriteLine(s))
+    .CountAsync(CancellationToken.None);
+// Prints: HELLO, WORLD, R3ASYNC
+// count: 3
+
+// Chain async transformations
+var firstLong = await AsyncObservable.Return(5)
+    .SelectAsync(async (x, ct) => 
+    {
+        await Task.Delay(100, ct);
+        return x.ToString();
+    })
+    .Where(s => s.Length > 0)
+    .FirstAsync(CancellationToken.None);
+// firstLong: "5"
+```
+
 ## Core Abstractions
 
 R3Async is built on two fundamental abstractions:
