@@ -37,7 +37,6 @@ public class ToAsyncObservableTest
 
         var observable = task.ToAsyncObservable();
 
-        Exception? observed = null;
         var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await observable.SubscribeAsync(

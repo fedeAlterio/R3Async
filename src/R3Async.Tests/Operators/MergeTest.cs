@@ -102,7 +102,6 @@ public class MergeTest
 
         var merged = outer.Merge();
         var results = new List<int>();
-        Exception? observed = null;
         var completedTcs = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
         var failureTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
 

@@ -465,6 +465,7 @@ public class ConcatTest
         await subscription.DisposeAsync();
         
         disposed1.ShouldBeTrue();
+        disposed2.ShouldBeTrue();
     }
 
     [Fact]

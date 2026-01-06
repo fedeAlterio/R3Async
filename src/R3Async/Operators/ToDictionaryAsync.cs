@@ -31,6 +31,7 @@ public static partial class AsyncObservable
     }
 
     sealed class ToDictionaryAsyncObserver<TSource, TKey, TValue>(Func<TSource, TKey> keySelector, Func<TSource, TValue> elementSelector, IEqualityComparer<TKey>? comparer, CancellationToken cancellationToken) : TaskAsyncObserverBase<TSource, Dictionary<TKey, TValue>>(cancellationToken)
+        where TKey : notnull
     {
         readonly Dictionary<TKey, TValue> _map = comparer is null ? new() : new(comparer);
 

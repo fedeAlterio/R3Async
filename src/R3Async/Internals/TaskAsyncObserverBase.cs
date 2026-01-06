@@ -15,7 +15,7 @@ internal abstract class TaskAsyncObserverBase<T, TTaskValue>(CancellationToken c
         {
             using var _ = _cancellationToken.Register(static x =>
             {
-                var @this = (TaskAsyncObserverBase<T, TTaskValue>)x;
+                var @this = (TaskAsyncObserverBase<T, TTaskValue>)x!;
                 @this._tcs.TrySetException(new OperationCanceledException(@this._cancellationToken));
             }, this);
 
