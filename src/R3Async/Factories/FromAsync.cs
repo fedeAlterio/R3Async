@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using R3Async.Internals;
 
 namespace R3Async;
 
@@ -11,14 +10,23 @@ public static partial class AsyncObservable
     {
         if (factory is null) throw new ArgumentNullException(nameof(factory));
 
-        return Create<T>((observer, _) =>
+        return CreateAsBackgroundJob<T>(async (obs, token) =>
         {
-            return new(CancelableTaskSubscription.CreateAndStart(async (obs, token) =>
-            {
-                var result = await factory(token);
-                await obs.OnNextAsync(result, token);
-                await obs.OnCompletedAsync(Result.Success);
-            }, observer));
-        });
+            var result = await factory(token);
+            await obs.OnNextAsync(result, token);
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
+    }
+
+    public static AsyncObservable<Unit> FromAsync(Func<CancellationToken, ValueTask> factory)
+    {
+        if (factory is null) throw new ArgumentNullException(nameof(factory));
+
+        return CreateAsBackgroundJob<Unit>(async (obs, token) =>
+        {
+            await factory(token);
+            await obs.OnNextAsync(Unit.Default, token);
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
     }
 }

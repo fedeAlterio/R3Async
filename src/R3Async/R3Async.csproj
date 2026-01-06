@@ -44,10 +44,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Compat\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="..\..\Assets\icon.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
@@ -60,6 +56,10 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Compat\" />
   </ItemGroup>
 
 </Project>

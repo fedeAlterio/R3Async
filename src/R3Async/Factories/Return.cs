@@ -6,15 +6,10 @@ public static partial class AsyncObservable
 {
     public static AsyncObservable<T> Return<T>(T value)
     {
-        return Create<T>((observer, _) =>
+        return CreateAsBackgroundJob<T>(async (obs, token) =>
         {
-            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, token) =>
-            {
-                await obs.OnNextAsync(value, token);
-                await obs.OnCompletedAsync(Result.Success);
-            }, observer);
-
-            return new(subscription);
-        });
+            await obs.OnNextAsync(value, token);
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
     }
 }

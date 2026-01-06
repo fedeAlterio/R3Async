@@ -10,53 +10,39 @@ public static partial class AsyncObservable
 {
     public static AsyncObservable<T> ToAsyncObservable<T>(this Task<T> @this)
     {
-        return Create<T>((observer, _) =>
+        return CreateAsBackgroundJob<T>(async (obs, cancellationToken) =>
         {
-            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, cancellationToken) =>
-            {
-                var result = await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
-                await obs.OnNextAsync(result, cancellationToken);
-                await obs.OnCompletedAsync(Result.Success);
-            }, observer);
-
-            return new ValueTask<IAsyncDisposable>(subscription);
-        });
+            var result = await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
+            await obs.OnNextAsync(result, cancellationToken);
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
     }
 
     public static AsyncObservable<T> ToAsyncObservable<T>(this IAsyncEnumerable<T> @this)
     {
-        return Create<T>((observer, _) =>
+        return CreateAsBackgroundJob<T>(async (obs, cancellationToken) =>
         {
-            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, cancellationToken) =>
+            await foreach (var value in @this.WithCancellation(cancellationToken))
             {
-                await foreach (var value in @this.WithCancellation(cancellationToken))
-                {
-                    await obs.OnNextAsync(value, cancellationToken);
-                }
+                await obs.OnNextAsync(value, cancellationToken);
+            }
 
-                await obs.OnCompletedAsync(Result.Success);
-            }, observer);
-
-            return new ValueTask<IAsyncDisposable>(subscription);
-        });
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
     }
 
     public static AsyncObservable<T> ToAsyncObservable<T>(this IEnumerable<T> @this)
     {
-        return Create<T>((observer, _) =>
+        return CreateAsBackgroundJob<T>(async (obs, cancellationToken) =>
         {
-            var subscription = CancelableTaskSubscription.CreateAndStart(async (obs, cancellationToken) =>
+            foreach (var value in @this)
             {
-                foreach (var value in @this)
-                {
-                    if (cancellationToken.IsCancellationRequested) return;
-                    await obs.OnNextAsync(value, cancellationToken);
-                }
+                if (cancellationToken.IsCancellationRequested) return;
 
-                await obs.OnCompletedAsync(Result.Success);
-            }, observer);
+                await obs.OnNextAsync(value, cancellationToken);
+            }
 
-            return new ValueTask<IAsyncDisposable>(subscription);
-        });
+            await obs.OnCompletedAsync(Result.Success);
+        }, true);
     }
 }

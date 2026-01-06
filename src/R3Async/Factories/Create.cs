@@ -30,22 +30,23 @@ public static partial class AsyncObservable
         if (job is null)
             throw new ArgumentNullException(nameof(job));
 
-        return Create<T>(async (observer, token) =>
+        return Create<T>((observer, _) =>
         {
             if (startOnSubscriptionThread)
             {
                 Debug.Assert(taskScheduler is null);
-                return CancelableTaskSubscription.CreateAndStart(job, observer);
+                return new(CancelableTaskSubscription.CreateAndStart(job, observer));
             }
 
             taskScheduler ??= TaskScheduler.Default;
-            return CancelableTaskSubscription.CreateAndStart(async (obs, ct) =>
+            return new(CancelableTaskSubscription.CreateAndStart(async (obs, ct) =>
             {
                 await Task.Factory.StartNew(() => job(obs, ct).AsTask(),
                                             ct,
                                             TaskCreationOptions.DenyChildAttach,
-                                            taskScheduler).Unwrap();
-            }, observer);
+                                            taskScheduler)
+                          .Unwrap();
+            }, observer));
         });
     }
 }
