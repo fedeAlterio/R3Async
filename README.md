@@ -261,7 +261,7 @@ A fundamental property of `ObserveOn` in R3Async is that it **does not lose cont
 ```csharp
 await observable
     .ObserveOn(uiContext)        // Switch to UI context
-    .Select(x => x * 2)           // Still executes on UI context
+    .Select(async (x, ct) => await Something(x, ct))           // Still executes on UI context
     .Where(x => x > 10)           // Still executes on UI context
     .SubscribeAsync(value =>      // Still executes on UI context
     {
