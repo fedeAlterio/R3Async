@@ -319,7 +319,7 @@ public class SelectTest
 
         var mapped = observable.Select(async (x, token) => x * 5);
         var tcs = new TaskCompletionSource<int>();
-        var subscription = await mapped.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
+        var subscription = await mapped.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         
