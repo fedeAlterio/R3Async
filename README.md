@@ -169,6 +169,7 @@ Transform and compose observable streams:
 - `Merge` - Merge multiple sequences
 - `Switch` - Switch to latest sequence
 - `Prepend` - Add values at the start
+- `CombineLatest` - Combine multiple observables and emit their latest notified values
 
 #### Error Handling
 - `Catch` - Handle and recover from errors
@@ -388,7 +389,6 @@ R3Async is currently under development and some features from R3 and Rx.NET are 
 - **BehaviorSubject** - Subject that stores and emits the latest value to new subscribers
 - **Publish / IConnectableObservable** - Hot observable multicasting support
 - **Throttle / Debounce** - Time-based filtering operators
-- **CombineLatest** - Combine multiple observables and emit when any changes
 - **Zip** - Combine multiple observables pairwise
 - **Race (Amb)** - Return the first observable to emit
 - **Others..**
