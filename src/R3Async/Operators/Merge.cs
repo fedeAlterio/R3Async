@@ -96,14 +96,13 @@ public static partial class AsyncObservable
                 _disposed = true;
             }
 
+            _disposeCts.Cancel();
+            await _outerDisposable.DisposeAsync();
+            await _innerDisposables.DisposeAsync();
             if (result is not null)
             {
                 await observer.OnCompletedAsync(result.Value);
             }
-
-            _disposeCts.Cancel();
-            await _outerDisposable.DisposeAsync();
-            await _innerDisposables.DisposeAsync();
             _disposeCts.Dispose();
         }
 

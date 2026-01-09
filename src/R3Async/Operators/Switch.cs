@@ -166,11 +166,6 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 _disposed = true;
             }
 
-            if (result is not null)
-            {
-                await _observer.OnCompletedAsync(result.Value);
-            }
-
             _disposeCts.Cancel();
             await _outerDisposable.DisposeAsync();
 
@@ -184,6 +179,11 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
             if (toDispose is not null)
             {
                 await toDispose.DisposeAsync();
+            }
+
+            if (result is not null)
+            {
+                await _observer.OnCompletedAsync(result.Value);
             }
 
             _disposeCts.Dispose();

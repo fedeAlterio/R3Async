@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using R3Async.Internals;
@@ -15,9 +14,9 @@ public static partial class AsyncObservable
             : new AnonymousAsyncObservable<T>(subscribeAsync);
     }
 
-    public static AsyncObservable<T> CreateAsBackgroundJob<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> job, bool startOnSubscriptionThread = false)
+    public static AsyncObservable<T> CreateAsBackgroundJob<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> job, bool startSynchronously = false)
     {
-        return CreateAsBackgroundJob(job, startOnSubscriptionThread, null);
+        return CreateAsBackgroundJob(job, startSynchronously, null);
     }
 
     public static AsyncObservable<T> CreateAsBackgroundJob<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> job, TaskScheduler taskScheduler)
@@ -25,28 +24,32 @@ public static partial class AsyncObservable
         return CreateAsBackgroundJob(job, false, taskScheduler);
     }
 
-    static AsyncObservable<T> CreateAsBackgroundJob<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> job, bool startOnSubscriptionThread, TaskScheduler? taskScheduler)
+    static AsyncObservable<T> CreateAsBackgroundJob<T>(Func<AsyncObserver<T>, CancellationToken, ValueTask> job, bool startSynchronously, TaskScheduler? taskScheduler)
     {
         if (job is null)
             throw new ArgumentNullException(nameof(job));
 
-        return Create<T>((observer, _) =>
+        if (startSynchronously)
         {
-            if (startOnSubscriptionThread)
-            {
-                Debug.Assert(taskScheduler is null);
-                return new(CancelableTaskSubscription.CreateAndStart(job, observer));
-            }
+            return Create<T>((observer, _) => new(CancelableTaskSubscription.CreateAndStart(job, observer)));
+        }
 
-            taskScheduler ??= TaskScheduler.Default;
-            return new(CancelableTaskSubscription.CreateAndStart(async (obs, ct) =>
+        if (taskScheduler is null)
+        {
+            return Create<T>((observer, _) => new(CancelableTaskSubscription.CreateAndStart(async (obs, token) =>
             {
-                await Task.Factory.StartNew(() => job(obs, ct).AsTask(),
-                                            ct,
-                                            TaskCreationOptions.DenyChildAttach,
-                                            taskScheduler)
-                          .Unwrap();
-            }, observer));
-        });
+                await Task.Yield();
+                await job(obs, token);
+            }, observer)));
+        }
+
+        return Create<T>((observer, _) => new(CancelableTaskSubscription.CreateAndStart(async (obs, ct) =>
+        {
+            await Task.Factory.StartNew(() => job(obs, ct).AsTask(),
+                                        ct,
+                                        TaskCreationOptions.DenyChildAttach,
+                                        taskScheduler)
+                      .Unwrap();
+        }, observer)));
     }
 }

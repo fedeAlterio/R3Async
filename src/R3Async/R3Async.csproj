@@ -62,4 +62,23 @@
     <Folder Include="Compat\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Operators\CombineLatest.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CombineLatest.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Operators\CombineLatest.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>CombineLatest.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
 </Project>

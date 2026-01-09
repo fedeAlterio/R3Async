@@ -227,13 +227,13 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
                 return;
             }
 
+            _disposeCts.Cancel();
+            await _outerDisposable.DisposeAsync();
+            await _innerSubscription.DisposeAsync();
             if (result is not null)
             {
                 await _observer.OnCompletedAsync(result.Value);
             }
-            _disposeCts.Cancel();
-            await _outerDisposable.DisposeAsync();
-            await _innerSubscription.DisposeAsync();
             _disposeCts.Dispose();
         }
 
