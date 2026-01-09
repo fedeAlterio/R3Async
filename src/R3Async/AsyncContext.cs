@@ -9,17 +9,29 @@ public record AsyncContext
 {
     AsyncContext () {}
 
-    public static AsyncContext From(SynchronizationContext synchronizationContext) => new()
+    public static AsyncContext From(SynchronizationContext synchronizationContext)
     {
-        SynchronizationContext = synchronizationContext,
-        TaskScheduler = null
-    };
+        if (synchronizationContext is null)
+            throw new ArgumentNullException(nameof(synchronizationContext));
 
-    public static AsyncContext From(TaskScheduler taskScheduler) => new()
+        return new()
+        {
+            SynchronizationContext = synchronizationContext,
+            TaskScheduler = null
+        };
+    }
+
+    public static AsyncContext From(TaskScheduler taskScheduler)
     {
-        SynchronizationContext = null,
-        TaskScheduler = taskScheduler
-    };
+        if (taskScheduler is null)
+            throw new ArgumentNullException(nameof(taskScheduler));
+
+        return new()
+        {
+            SynchronizationContext = null,
+            TaskScheduler = taskScheduler
+        };
+    }
 
     public static AsyncContext Default { get; } = new();
 
