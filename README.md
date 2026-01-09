@@ -179,6 +179,9 @@ Transform and compose observable streams:
 - `Do` - Perform side effects
 - `Wrap` - Wrap observer calls
 
+#### Concurrency & Scheduling
+- `ObserveOn` - Control execution context for downstream operators
+
 ### Aggregation & Terminal Operations
 
 Async methods that consume the observable and return results:
@@ -221,6 +224,64 @@ await foreach (var x in observable.ToAsyncEnumerable(() => Channel.CreateUnbound
 ```
 
 Channels already encode the desired conversion semantics, so you have full control over buffering and backpressure behavior.
+
+### ObserveOn and AsyncContext
+
+The `ObserveOn` operator controls the async context for downstream operators. R3Async's `ObserveOn` is based on actual async behavior in .NET, leveraging `SynchronizationContext` and `TaskScheduler`.
+
+#### AsyncContext
+
+`AsyncContext` is a discriminated union that encapsulates either a `SynchronizationContext` or a `TaskScheduler`:
+
+```csharp
+// Create from SynchronizationContext
+var context = AsyncContext.From(SynchronizationContext.Current);
+
+// Create from TaskScheduler
+var context = AsyncContext.From(TaskScheduler.Current);
+
+// Get the current context
+var context = AsyncContext.GetCurrent();
+```
+
+`AsyncContext` provides a utility method `SwitchContextAsync()` that returns an awaitable. When awaited, it runs the continuation on the actual context (either the `SynchronizationContext` or `TaskScheduler`):
+
+```csharp
+var context = AsyncContext.From(uiSyncContext);
+await context.SwitchContextAsync(forceYielding: false, cancellationToken);
+// Code after this point executes on the UI context
+```
+
+When you call `ObserveOn(asyncContext)`, all downstream observer calls (`OnNextAsync`, `OnErrorResumeAsync`, `OnCompletedAsync`) will be executed on that context - either by posting to the `SynchronizationContext` or starting a task on the `TaskScheduler`.
+
+#### Context Preservation
+
+A fundamental property of `ObserveOn` in R3Async is that it **does not lose context**. Because the implementation never uses `ConfigureAwait(false)`, when you chain operators after `ObserveOn`, they continue to execute on the specified async context:
+
+```csharp
+await observable
+    .ObserveOn(uiContext)        // Switch to UI context
+    .Select(x => x * 2)           // Still executes on UI context
+    .Where(x => x > 10)           // Still executes on UI context
+    .SubscribeAsync(value =>      // Still executes on UI context
+    {
+        uiControl.Text = value.ToString(); // Safe to update UI
+    });
+```
+
+This behavior is similar to how synchronous Rx's `ObserveOn` works, where the scheduler context flows through the entire chain of downstream operators.
+
+#### Force Yielding
+
+The `forceYielding` parameter controls whether `ObserveOn` always yields execution, even if already on the target context:
+
+```csharp
+// Only switch if not already on the context
+observable.ObserveOn(context, forceYielding: false)
+
+// Always yield, even if already on the context
+observable.ObserveOn(context, forceYielding: true)
+```
 
 ### Subjects
 
@@ -392,11 +453,10 @@ R3Async is currently under development and some features from R3 and Rx.NET are 
 - **Zip** - Combine multiple observables pairwise
 - **Race (Amb)** - Return the first observable to emit
 - **Others..**
-- **ObserveOn** - The concept of schedulers in an async context requires further design consideration. Since async/await already works with TaskScheduler and SynchronizationContext, it's unclear whether TimeProvider-based scheduling or custom schedulers would provide meaningful value in this context.
 
 ### Design Decisions
 
-- **No ConfigureAwait(false)** - By design, R3Async does not use `ConfigureAwait(false)`. This is a deliberate choice to maintain context flow and avoid potential issues with context loss. For more context on this decision, see [dotnet/runtime#113567](https://github.com/dotnet/runtime/issues/113567) and [dotnet/reactive#1967](https://github.com/dotnet/reactive/discussions/1967).
+- **No ConfigureAwait(false)** - By design, R3Async does not use `ConfigureAwait(false)`. This is a deliberate choice to maintain context flow and avoid potential issues with context loss. For more context on this decision, see [dotnet/runtime#113567](https://github.com/dotnet/runtime/issues/113567) and [dotnet/reactive#1967](https://github.com/dotnet/reactive/discussions/1967). This design choice is particularly important for `ObserveOn`, which preserves execution context throughout the operator chain.
 
 These features may be added in future releases.
 ## Related Projects
