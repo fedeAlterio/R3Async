@@ -87,7 +87,6 @@ internal static class AsyncContextEx
             return @this.TaskScheduler == TaskScheduler.Current;
         }
 
-        var currentTs = TaskScheduler.Current;
-        return currentTs == TaskScheduler.Default;
+        return TaskScheduler.Current == TaskScheduler.Default;
     }
 }

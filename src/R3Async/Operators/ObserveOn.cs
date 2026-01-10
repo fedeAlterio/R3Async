@@ -6,9 +6,24 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
-    public static AsyncObservable<T> ObserveOn<T>(this AsyncObservable<T> @this, AsyncContext asyncContext, bool forceYielding = false)
+    extension<T>(AsyncObservable<T> @this)
     {
-        return new ObserveOnAsyncObservable<T>(@this, asyncContext, forceYielding);
+        public AsyncObservable<T> ObserveOn(AsyncContext asyncContext, bool forceYielding = false)
+        {
+            return new ObserveOnAsyncObservable<T>(@this, asyncContext, forceYielding);
+        }
+
+        public AsyncObservable<T> ObserveOn(SynchronizationContext synchronizationContext, bool forceYielding = false)
+        {
+            var asyncContext = AsyncContext.From(synchronizationContext);
+            return new ObserveOnAsyncObservable<T>(@this, asyncContext, forceYielding);
+        }
+
+        public AsyncObservable<T> ObserveOn(TaskScheduler taskScheduler, bool forceYielding = false)
+        {
+            var asyncContext = AsyncContext.From(taskScheduler);
+            return new ObserveOnAsyncObservable<T>(@this, asyncContext, forceYielding);
+        }
     }
 }
 
@@ -20,7 +35,7 @@ internal sealed class ObserveOnAsyncObservable<T>(AsyncObservable<T> source, Asy
         return await source.SubscribeAsync(observeOnObserver, cancellationToken);
     }
 
-    sealed class ObserveOnObserver(AsyncObserver<T> observer, AsyncContext asyncContext, bool forceYielding) : AsyncObserver<T>
+    internal sealed class ObserveOnObserver(AsyncObserver<T> observer, AsyncContext asyncContext, bool forceYielding) : AsyncObserver<T>
     {
         protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
         {

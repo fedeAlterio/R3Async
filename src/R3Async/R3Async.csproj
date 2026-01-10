@@ -59,10 +59,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Compat\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="Operators\CombineLatest.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>CombineLatest.cs</LastGenOutput>
