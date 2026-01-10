@@ -297,7 +297,7 @@ public interface ISubject<T>
 }
 ```
 
-#### Creating Subjects
+#### Subject
 
 Subjects can be created using the static `Subject.Create<T>()` factory method with optional creation options:
 
@@ -330,6 +330,51 @@ await using var subscription = await subject.Values.SubscribeAsync(
 await subject.OnNextAsync(1, CancellationToken.None);
 await subject.OnNextAsync(2, CancellationToken.None);
 await subject.OnCompletedAsync(Result.Success);
+```
+
+#### BehaviorSubject
+
+BehaviorSubject is a type of subject that stores the latest value and emits it to new subscribers immediately upon subscription. It can be created using the static `Subject.CreateBehavior<T>()` factory method:
+
+```csharp
+// Create with initial value and default options (Serial publishing)
+var behaviorSubject = Subject.CreateBehavior<int>(0);
+
+// Create with explicit options
+var concurrentBehaviorSubject = Subject.CreateBehavior<string>("initial", new BehaviorSubjectCreationOptions
+{
+    PublishingOption = PublishingOption.Concurrent
+});
+```
+
+The BehaviorSubject stores the latest emitted value and immediately sends it to new subscribers:
+
+```csharp
+var subject = Subject.CreateBehavior<int>(42);
+
+// First subscriber receives the initial value (42)
+await using var sub1 = await subject.Values.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Sub1: {value}")
+);
+// Output: Sub1: 42
+
+// Emit new values
+await subject.OnNextAsync(100, CancellationToken.None);
+// Output: Sub1: 100
+
+await subject.OnNextAsync(200, CancellationToken.None);
+// Output: Sub1: 200
+
+// New subscriber receives the latest value (200) immediately
+await using var sub2 = await subject.Values.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Sub2: {value}")
+);
+// Output: Sub2: 200
+
+// Subsequent values are sent to all subscribers
+await subject.OnNextAsync(300, CancellationToken.None);
+// Output: Sub1: 300
+// Output: Sub2: 300
 ```
 
 ### Disposables
@@ -447,7 +492,6 @@ Note: `OperationCanceledException` is automatically ignored by the unhandled exc
 
 R3Async is currently under development and some features from R3 and Rx.NET are not yet implemented:
 
-- **BehaviorSubject** - Subject that stores and emits the latest value to new subscribers
 - **Publish / IConnectableObservable** - Hot observable multicasting support
 - **Throttle / Debounce** - Time-based filtering operators
 - **Zip** - Combine multiple observables pairwise
