@@ -11,7 +11,7 @@
     <Description>Async version of R3 (Variant of async rx.net)</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/fedeAlterio/R3Async</RepositoryUrl>
-    <Version>0.0.3</Version>
+    <Version>0.0.4</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/fedeAlterio/R3Async</PackageProjectUrl>
