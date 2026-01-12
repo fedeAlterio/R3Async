@@ -88,6 +88,7 @@ public static partial class AsyncObservable
 
             async ValueTask OnNextCombined(<#= OnNextCombinedParams(n) #>, CancellationToken cancellationToken)
             {
+                if (_disposed == 1) return;
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
@@ -98,6 +99,7 @@ public static partial class AsyncObservable
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
             {
+                if (_disposed == 1) return;
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
