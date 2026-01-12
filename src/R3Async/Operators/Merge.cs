@@ -72,6 +72,7 @@ public static partial class AsyncObservable
 
         async ValueTask ForwardOnNext(T value, CancellationToken cancellationToken)
         {
+            if (_disposed) return;
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
             using (await _onSomethingGate.LockAsync())
             {
@@ -81,6 +82,7 @@ public static partial class AsyncObservable
 
         async ValueTask ForwardOnErrorResume(Exception exception, CancellationToken cancellationToken)
         {
+            if (_disposed) return;
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
             using (await _onSomethingGate.LockAsync())
             {
