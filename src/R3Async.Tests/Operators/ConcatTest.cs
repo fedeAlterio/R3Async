@@ -18,7 +18,7 @@ public class ConcatTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -30,7 +30,7 @@ public class ConcatTest
                 await observer.OnNextAsync(3, token);
                 await observer.OnNextAsync(4, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -50,7 +50,7 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -73,7 +73,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -84,7 +84,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -95,7 +95,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs3.SetResult();
+                tcs3.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -116,7 +116,7 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -143,7 +143,7 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await completedTcs.Task;
@@ -161,7 +161,7 @@ public class ConcatTest
             _ = Task.Run(async () =>
             {
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -172,7 +172,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -192,7 +192,7 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -229,7 +229,7 @@ public class ConcatTest
             async result =>
             {
                 if (result.IsFailure)
-                    completedTcs.SetResult(result.Exception);
+                    completedTcs.TrySetResult(result.Exception);
             },
             CancellationToken.None);
 
@@ -249,7 +249,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Failure(expectedException));
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -282,7 +282,7 @@ public class ConcatTest
             async result =>
             {
                 if (result.IsFailure)
-                    completedTcs.SetResult(result.Exception);
+                    completedTcs.TrySetResult(result.Exception);
             },
             CancellationToken.None);
 
@@ -305,7 +305,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -316,7 +316,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -337,8 +337,8 @@ public class ConcatTest
         
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async (ex, token) => errorTcs.TrySetResult(ex),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -366,7 +366,7 @@ public class ConcatTest
                 await observer.OnErrorResumeAsync(expectedException, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -377,7 +377,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -397,8 +397,8 @@ public class ConcatTest
         
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async (ex, token) => errorTcs.TrySetResult(ex),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -422,7 +422,7 @@ public class ConcatTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Create(() =>
             {
@@ -473,7 +473,7 @@ public class ConcatTest
         {
             _ = Task.Run(async () =>
             {
-                subscribed1.SetResult();
+                subscribed1.TrySetResult();
                 await observer.OnNextAsync(1, token);
                 await complete1.Task;
                 await observer.OnCompletedAsync(Result.Success);
@@ -485,7 +485,7 @@ public class ConcatTest
         {
             _ = Task.Run(async () =>
             {
-                subscribed2.SetResult();
+                subscribed2.TrySetResult();
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
             });
@@ -507,13 +507,13 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await subscribed1.Task;
         subscribed2.Task.IsCompleted.ShouldBeFalse();
         
-        complete1.SetResult();
+        complete1.TrySetResult();
         await subscribed2.Task;
         await completedTcs.Task;
         
@@ -534,7 +534,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -545,7 +545,7 @@ public class ConcatTest
             {
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -571,14 +571,14 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
-        emitOuter1.SetResult();
+        emitOuter1.TrySetResult();
         await tcs1.Task;
         results.ShouldBe(new[] { 1 });
         
-        emitOuter2.SetResult();
+        emitOuter2.TrySetResult();
         await tcs2.Task;
         await completedTcs.Task;
         
@@ -599,7 +599,7 @@ public class ConcatTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -611,7 +611,7 @@ public class ConcatTest
                 await observer.OnNextAsync(4, token);
                 await observer.OnNextAsync(5, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -631,7 +631,7 @@ public class ConcatTest
         await using var subscription = await concatenated.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -656,7 +656,7 @@ public class ConcatTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                completedTcs.SetResult();
+                completedTcs.TrySetResult();
             });
             return AsyncDisposable.Create(() =>
             {
@@ -684,7 +684,7 @@ public class ConcatTest
             },
             CancellationToken.None);
 
-        tcs.SetResult();
+        tcs.TrySetResult();
         await completedTcs.Task;
         
         results.ShouldBe(new[] { 1 });
@@ -704,7 +704,7 @@ public class ConcatTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -716,7 +716,7 @@ public class ConcatTest
                 await observer.OnNextAsync(3, token);
                 await observer.OnNextAsync(4, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -739,7 +739,7 @@ public class ConcatTest
         await using var subscription = await result.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -786,7 +786,7 @@ public class ConcatTest
             {
                 if (result.IsFailure)
                     completedException = result.Exception;
-                completedTcs.SetResult();
+                completedTcs.TrySetResult();
             },
             CancellationToken.None);
 

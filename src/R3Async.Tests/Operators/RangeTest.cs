@@ -15,7 +15,7 @@ public class RangeTest
         await using var subscription = await obs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r),
+            async r => completed.TrySetResult(r),
             CancellationToken.None);
 
         var result = await completed.Task;
@@ -37,7 +37,7 @@ public class RangeTest
         {
             while (Volatile.Read(ref subscription) is null) await Task.Yield();
             await Task.Yield();
-            firstReceived.SetResult(x);
+            firstReceived.TrySetResult(x);
             results.Add(x);
             await subscription.DisposeAsync();
         }, CancellationToken.None);

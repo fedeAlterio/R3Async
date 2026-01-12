@@ -16,7 +16,7 @@ public class WhereTest
             await observer.OnNextAsync(3, token);
             await observer.OnNextAsync(4, token);
             await observer.OnNextAsync(5, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -39,7 +39,7 @@ public class WhereTest
             await observer.OnNextAsync(3, token);
             await observer.OnNextAsync(4, token);
             await observer.OnNextAsync(5, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -65,7 +65,7 @@ public class WhereTest
             await observer.OnNextAsync(2, token);
             await observer.OnNextAsync(4, token);
             await observer.OnNextAsync(6, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -86,7 +86,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(3, token);
             await observer.OnNextAsync(5, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -116,7 +116,7 @@ public class WhereTest
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result) => tcs.SetResult(result.IsSuccess),
+            async (result) => tcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await tcs.Task;
@@ -142,7 +142,7 @@ public class WhereTest
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result) => tcs.SetResult(result.IsSuccess),
+            async (result) => tcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await tcs.Task;
@@ -160,7 +160,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnErrorResumeAsync(expectedException, token);
             await observer.OnNextAsync(2, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -169,7 +169,7 @@ public class WhereTest
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
         
@@ -189,7 +189,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnErrorResumeAsync(expectedException, token);
             await observer.OnNextAsync(4, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -198,7 +198,7 @@ public class WhereTest
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
         
@@ -218,7 +218,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(2, token);
             await observer.OnNextAsync(3, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -233,7 +233,7 @@ public class WhereTest
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
         
@@ -253,7 +253,7 @@ public class WhereTest
             await observer.OnNextAsync(1, token);
             await observer.OnNextAsync(2, token);
             await observer.OnNextAsync(3, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -269,7 +269,7 @@ public class WhereTest
         var results = new List<int>();
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
         
@@ -296,7 +296,7 @@ public class WhereTest
 
         var filtered = observable.Where(x => x % 2 == 0);
         var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await filtered.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
+        var subscription = await filtered.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         
@@ -320,7 +320,7 @@ public class WhereTest
 
         var filtered = observable.Where(async (x, token) => x % 2 == 0);
         var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await filtered.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
+        var subscription = await filtered.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         
@@ -335,7 +335,7 @@ public class WhereTest
         {
             for (int i = 1; i <= 10; i++)
                 await observer.OnNextAsync(i, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -366,7 +366,7 @@ public class WhereTest
         await using var subscription = await filtered.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async (result) => tcs.SetResult(true),
+            async (result) => tcs.TrySetResult(true),
             CancellationToken.None);
         
         await tcs.Task;
@@ -387,7 +387,7 @@ public class WhereTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(3, token);
-                completedTcs.SetResult();
+                completedTcs.TrySetResult();
             });
             return AsyncDisposable.Create(() =>
             {
@@ -407,7 +407,7 @@ public class WhereTest
             },
             CancellationToken.None);
         
-        tcs.SetResult();
+        tcs.TrySetResult();
         await completedTcs.Task;
         results.ShouldBe(new[] { 2 });
         disposed.ShouldBeTrue();

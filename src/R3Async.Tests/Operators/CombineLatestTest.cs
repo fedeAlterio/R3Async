@@ -19,14 +19,14 @@ public class CombineLatestTest
             {
                 // emit first value
                 await observer.OnNextAsync(1, token);
-                tcsLeft1Emitted.SetResult();
+                tcsLeft1Emitted.TrySetResult();
 
                 // wait until right emitted its first value so CombineLatest will produce (1,2)
                 await tcsRight1Emitted.Task;
 
                 // emit second value
                 await observer.OnNextAsync(3, token);
-                tcsLeft3Emitted.SetResult();
+                tcsLeft3Emitted.TrySetResult();
 
                 await observer.OnCompletedAsync(Result.Success);
             });
@@ -40,14 +40,14 @@ public class CombineLatestTest
                 // wait for left first value so we create (1,2)
                 await tcsLeft1Emitted.Task;
                 await observer.OnNextAsync(2, token);
-                tcsRight1Emitted.SetResult();
+                tcsRight1Emitted.TrySetResult();
 
                 // wait for left second value so we create (3,4)
                 await tcsLeft3Emitted.Task;
                 await observer.OnNextAsync(4, token);
 
                 await observer.OnCompletedAsync(Result.Success);
-                completedTcs.SetResult(true);
+                completedTcs.TrySetResult(true);
             });
             return AsyncDisposable.Empty;
         });
@@ -79,7 +79,7 @@ public class CombineLatestTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Failure(expected));
-                tcsLeft.SetResult();
+                tcsLeft.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -100,7 +100,7 @@ public class CombineLatestTest
         await using var subscription = await combined.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => { if (result.IsFailure) completedTcs.SetResult(result.Exception); },
+            async result => { if (result.IsFailure) completedTcs.TrySetResult(result.Exception); },
             CancellationToken.None);
 
         await tcsLeft.Task;
@@ -121,7 +121,7 @@ public class CombineLatestTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcsLeft1.SetResult();
+                tcsLeft1.TrySetResult();
                 await observer.OnCompletedAsync(Result.Success);
             });
             return AsyncDisposable.Empty;
@@ -134,13 +134,13 @@ public class CombineLatestTest
                 // wait for left first value to ensure (1,2) is produced first
                 await tcsLeft1.Task;
                 await observer.OnNextAsync(2, token);
-                tcsRight1.SetResult();
+                tcsRight1.TrySetResult();
 
                 // report a resumable error, then continue
                 await observer.OnErrorResumeAsync(expected, token);
                 await observer.OnNextAsync(4, token);
                 await observer.OnCompletedAsync(Result.Success);
-                completedTcs.SetResult(true);
+                completedTcs.TrySetResult(true);
             });
             return AsyncDisposable.Empty;
         });
@@ -151,7 +151,7 @@ public class CombineLatestTest
 
         await using var subscription = await combined.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
@@ -175,7 +175,7 @@ public class CombineLatestTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcsStarted.SetResult();
+                tcsStarted.TrySetResult();
                 await Task.Yield();
             });
             return AsyncDisposable.Create(() =>

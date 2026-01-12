@@ -20,7 +20,7 @@ public class SkipTest
                 await observer.OnNextAsync(4, token);
                 await observer.OnNextAsync(5, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -32,7 +32,7 @@ public class SkipTest
         await using var subscription = await skipped.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -52,7 +52,7 @@ public class SkipTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -64,7 +64,7 @@ public class SkipTest
         await using var subscription = await skipped.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -84,7 +84,7 @@ public class SkipTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -96,7 +96,7 @@ public class SkipTest
         await using var subscription = await skipped.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -117,7 +117,7 @@ public class SkipTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnErrorResumeAsync(expected, token);
                 await observer.OnNextAsync(2, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -128,7 +128,7 @@ public class SkipTest
 
         await using var subscription = await skipped.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
 
@@ -149,7 +149,7 @@ public class SkipTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
             {
@@ -160,7 +160,7 @@ public class SkipTest
 
         var skipped = observable.Skip(5);
         var tcsValue = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await skipped.SubscribeAsync(async (x, token) => tcsValue.SetResult(x), CancellationToken.None);
+        var subscription = await skipped.SubscribeAsync(async (x, token) => tcsValue.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         disposed.ShouldBeTrue();

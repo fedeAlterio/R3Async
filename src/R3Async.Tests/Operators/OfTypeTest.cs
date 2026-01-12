@@ -18,7 +18,7 @@ public class OfTypeTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync("three", token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
 
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
@@ -31,7 +31,7 @@ public class OfTypeTest
         await using var subscription = await obs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -55,7 +55,7 @@ public class OfTypeTest
         await using var subscription = await obs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -79,7 +79,7 @@ public class OfTypeTest
         await using var subscription = await obs.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async r => completed.SetResult(r),
+            async r => completed.TrySetResult(r),
             CancellationToken.None);
 
         var result = await completed.Task;
@@ -98,7 +98,7 @@ public class OfTypeTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync("val", token);
-                tcs.SetResult(0);
+                tcs.TrySetResult(0);
             });
 
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
@@ -110,7 +110,7 @@ public class OfTypeTest
 
         var obs = source.OfType<object, string>();
         var valueTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await obs.SubscribeAsync(async (x, token) => valueTcs.SetResult(x), CancellationToken.None);
+        var subscription = await obs.SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);
 
         await valueTcs.Task;
         await subscription.DisposeAsync();

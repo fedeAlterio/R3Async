@@ -19,7 +19,7 @@ public class SwitchTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcsInner1Started.SetResult();
+                tcsInner1Started.TrySetResult();
                 await tcsInner1Continue.Task; // will be cancelled/disposed when switched
                 await observer.OnNextAsync(99, token);
                 await observer.OnCompletedAsync(Result.Success);
@@ -38,7 +38,7 @@ public class SwitchTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcsInner2Completed.SetResult();
+                tcsInner2Completed.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -63,12 +63,12 @@ public class SwitchTest
         await using var subscription = await outer.Switch().SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completedTcs.SetResult(r.IsSuccess),
+            async r => completedTcs.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcsInner1Started.Task;
         // switch to inner2
-        tcsEmitSecond.SetResult();
+        tcsEmitSecond.TrySetResult();
 
         await tcsInner2Completed.Task;
         (await completedTcs.Task).ShouldBeTrue();
@@ -103,7 +103,7 @@ public class SwitchTest
         await using var subscription = await outer.Switch().SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => observed = ex,
-            async r => completedTcs.SetResult(r),
+            async r => completedTcs.TrySetResult(r),
             CancellationToken.None);
 
         var result = await completedTcs.Task;
@@ -135,7 +135,7 @@ public class SwitchTest
         await using var subscription = await outer.Switch().SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async r => completedTcs.SetResult(r),
+            async r => completedTcs.TrySetResult(r),
             CancellationToken.None);
 
         var result = await completedTcs.Task;
@@ -154,7 +154,7 @@ public class SwitchTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcsStarted.SetResult();
+                tcsStarted.TrySetResult();
                 try
                 {
                     await Task.Delay(Timeout.Infinite, token);
@@ -179,7 +179,7 @@ public class SwitchTest
         });
 
         var valueTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await outer.Switch().SubscribeAsync(async (x, token) => valueTcs.SetResult(x), CancellationToken.None);
+        var subscription = await outer.Switch().SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);
 
         await tcsStarted.Task;
         await subscription.DisposeAsync();

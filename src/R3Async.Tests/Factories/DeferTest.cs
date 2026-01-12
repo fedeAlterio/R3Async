@@ -18,7 +18,7 @@ public class DeferTest
             {
                 await observer.OnNextAsync(1, t);
                 await observer.OnNextAsync(2, t);
-                tcs.SetResult();
+                tcs.TrySetResult();
                 return AsyncDisposable.Empty;
             });
         });
@@ -47,9 +47,9 @@ public class DeferTest
             {
                 await observer.OnNextAsync(count, t);
                 if (count == 1)
-                    tcs1.SetResult();
+                    tcs1.TrySetResult();
                 else
-                    tcs2.SetResult();
+                    tcs2.TrySetResult();
                 return AsyncDisposable.Empty;
             });
         });
@@ -86,7 +86,7 @@ public class DeferTest
         await using var subscription = await deferred.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => tcs.SetResult(result.IsSuccess),
+            async result => tcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
         
         var completed = await tcs.Task;
@@ -116,7 +116,7 @@ public class DeferTest
             async result =>
             {
                 if (result.IsFailure)
-                    tcs.SetResult(result.Exception);
+                    tcs.TrySetResult(result.Exception);
             },
             CancellationToken.None);
         
@@ -137,7 +137,7 @@ public class DeferTest
                 await observer.OnNextAsync(1, t);
                 await observer.OnErrorResumeAsync(expectedException, t);
                 await observer.OnNextAsync(2, t);
-                tcs.SetResult();
+                tcs.TrySetResult();
                 return AsyncDisposable.Empty;
             });
         });
@@ -146,7 +146,7 @@ public class DeferTest
         var results = new List<int>();
         await using var subscription = await deferred.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
         
@@ -189,7 +189,7 @@ public class DeferTest
         });
 
         var tcs = new TaskCompletionSource<int>();
-        var subscription = await deferred.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
+        var subscription = await deferred.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         
@@ -206,7 +206,7 @@ public class DeferTest
             {
                 for (int i = 1; i <= 5; i++)
                     await observer.OnNextAsync(i, t);
-                tcs.SetResult();
+                tcs.TrySetResult();
                 return AsyncDisposable.Empty;
             });
         });
@@ -235,7 +235,7 @@ public class DeferTest
             return AsyncObservable.Create<int>(async (observer, t) =>
             {
                 await observer.OnNextAsync(1, t);
-                tcs.SetResult();
+                tcs.TrySetResult();
                 return AsyncDisposable.Empty;
             });
         });
@@ -265,7 +265,7 @@ public class DeferTest
         await using var subscription = await deferred.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => tcs.SetResult(true),
+            async result => tcs.TrySetResult(true),
             CancellationToken.None);
         
         await tcs.Task;
@@ -289,7 +289,7 @@ public class DeferTest
                     await observer.OnNextAsync(1, t);
                     await observer.OnNextAsync(2, t);
                     await observer.OnNextAsync(3, t);
-                    completedTcs.SetResult();
+                    completedTcs.TrySetResult();
                 });
                 return AsyncDisposable.Create(() =>
                 {
@@ -309,7 +309,7 @@ public class DeferTest
             },
             CancellationToken.None);
         
-        tcs.SetResult();
+        tcs.TrySetResult();
         await completedTcs.Task;
         results.ShouldBe(new[] { 1 });
         disposed.ShouldBeTrue();
@@ -329,7 +329,7 @@ public class DeferTest
                 return AsyncObservable.Create<int>(async (observer, t) =>
                 {
                     await observer.OnNextAsync(100, t);
-                    tcs1.SetResult();
+                    tcs1.TrySetResult();
                     return AsyncDisposable.Empty;
                 });
             }
@@ -338,7 +338,7 @@ public class DeferTest
                 return AsyncObservable.Create<int>(async (observer, t) =>
                 {
                     await observer.OnNextAsync(200, t);
-                    tcs2.SetResult();
+                    tcs2.TrySetResult();
                     return AsyncDisposable.Empty;
                 });
             }
@@ -366,7 +366,7 @@ public class DeferTest
             return AsyncObservable.Create<int>(async (observer, t) =>
             {
                 await observer.OnNextAsync(42, t);
-                tcs.SetResult();
+                tcs.TrySetResult();
                 return AsyncDisposable.Empty;
             });
         });
@@ -394,7 +394,7 @@ public class DeferTest
                 return AsyncObservable.Create<int>(async (observer, ct) =>
                 {
                     await observer.OnNextAsync(1, ct);
-                    tcs.SetResult();
+                    tcs.TrySetResult();
                     return AsyncDisposable.Empty;
                 });
             });

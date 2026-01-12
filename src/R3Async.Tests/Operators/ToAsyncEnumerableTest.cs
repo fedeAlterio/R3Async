@@ -77,7 +77,7 @@ public class ToAsyncEnumerableTest
 
         var onErrorResume = new Func<Exception, CancellationToken, ValueTask>((ex, ct) =>
         {
-            called.SetResult(ex);
+            called.TrySetResult(ex);
             return default;
         });
 
@@ -115,7 +115,7 @@ public class ToAsyncEnumerableTest
 
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
             {
-                disposedTcs.SetResult();
+                disposedTcs.TrySetResult();
                 return default;
             }));
         });

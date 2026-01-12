@@ -22,7 +22,7 @@ public class FinallyTest
         await using var subscription = await finalObs.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completed.SetResult(result.IsSuccess),
+            async result => completed.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -51,7 +51,7 @@ public class FinallyTest
         await using var subscription = await finalObs.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completed.SetResult(result.IsSuccess),
+            async result => completed.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -77,7 +77,7 @@ public class FinallyTest
         await using var subscription = await finalObs.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completed.SetResult(result),
+            async result => completed.TrySetResult(result),
             CancellationToken.None);
 
         var result = await completed.Task;
@@ -105,7 +105,7 @@ public class FinallyTest
         var finalObs = observable.Finally(() => executed = true);
 
         var valueTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await finalObs.SubscribeAsync(async (x, token) => valueTcs.SetResult(x), CancellationToken.None);
+        var subscription = await finalObs.SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);
 
         await valueTcs.Task;
         await subscription.DisposeAsync();

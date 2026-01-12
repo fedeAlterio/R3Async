@@ -16,7 +16,7 @@ public class ReturnTest
         await using var subscription = await obs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -38,7 +38,7 @@ public class ReturnTest
             }
             catch (OperationCanceledException)
             {
-                canceledTcs.SetResult(true);
+                canceledTcs.TrySetResult(true);
             }
         }, CancellationToken.None);
 
@@ -58,7 +58,7 @@ public class ReturnTest
         {
             while (subscription is null) await Task.Yield();
             await subscription.DisposeAsync();
-            onNextCalled.SetResult(true);
+            onNextCalled.TrySetResult(true);
         }, CancellationToken.None);
 
         await onNextCalled.Task;

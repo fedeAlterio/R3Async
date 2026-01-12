@@ -17,7 +17,7 @@ public class ThrowTest
         await using var sub = await obs.SubscribeAsync(
             async (x, token) => seen.Add(x),
             async (ex, token) => { },
-            async result => completed.SetResult(result),
+            async result => completed.TrySetResult(result),
             CancellationToken.None);
 
         var result = await completed.Task;
@@ -33,7 +33,7 @@ public class ThrowTest
         var obs = AsyncObservable.Throw<int>(expected);
 
         var completed = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await obs.SubscribeAsync(async (x, token) => { }, async (ex, token) => { }, async result => completed.SetResult(result), CancellationToken.None);
+        var subscription = await obs.SubscribeAsync(async (x, token) => { }, async (ex, token) => { }, async result => completed.TrySetResult(result), CancellationToken.None);
 
         // disposing should not throw and should be safe
         await subscription.DisposeAsync();

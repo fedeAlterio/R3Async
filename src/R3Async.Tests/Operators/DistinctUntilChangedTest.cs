@@ -21,7 +21,7 @@ public class DistinctUntilChangedTest
                 await observer.OnNextAsync(3, token);
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -33,7 +33,7 @@ public class DistinctUntilChangedTest
         await using var subscription = await sut.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -56,7 +56,7 @@ public class DistinctUntilChangedTest
                 await observer.OnNextAsync("B", token);
                 await observer.OnNextAsync("b", token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -68,7 +68,7 @@ public class DistinctUntilChangedTest
         await using var subscription = await sut.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -92,7 +92,7 @@ public class DistinctUntilChangedTest
         await using var subscription = await sut.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -112,7 +112,7 @@ public class DistinctUntilChangedTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnErrorResumeAsync(expected, token);
                 await observer.OnNextAsync(2, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -123,7 +123,7 @@ public class DistinctUntilChangedTest
 
         await using var subscription = await sut.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
 
@@ -145,7 +145,7 @@ public class DistinctUntilChangedTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
             {

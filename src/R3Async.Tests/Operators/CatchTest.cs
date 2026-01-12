@@ -28,7 +28,7 @@ public class CatchTest
             {
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                innerDone.SetResult();
+                innerDone.TrySetResult();
             });
             return AsyncDisposable.Empty;
         }));
@@ -37,7 +37,7 @@ public class CatchTest
         var results = new List<int>();
         var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await using var subscription = await caught.SubscribeAsync(async (x, token) => results.Add(x), async (ex, token) => { }, async result => completedTcs.SetResult(result), CancellationToken.None);
+        await using var subscription = await caught.SubscribeAsync(async (x, token) => results.Add(x), async (ex, token) => { }, async result => completedTcs.TrySetResult(result), CancellationToken.None);
 
         await innerDone.Task;
         var result = await completedTcs.Task;
@@ -74,7 +74,7 @@ public class CatchTest
         var results = new List<int>();
         var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await using var subscription = await caught.SubscribeAsync(async (x, token) => results.Add(x), async (ex, token) => { }, async result => completedTcs.SetResult(result), CancellationToken.None);
+        await using var subscription = await caught.SubscribeAsync(async (x, token) => results.Add(x), async (ex, token) => { }, async result => completedTcs.TrySetResult(result), CancellationToken.None);
 
         var result = await completedTcs.Task;
         result.IsFailure.ShouldBeTrue();
@@ -102,7 +102,7 @@ public class CatchTest
         var caught = source.Catch(handler);
         var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await using var subscription = await caught.SubscribeAsync(async (x, token) => { }, async (ex, token) => { }, async result => completedTcs.SetResult(result), CancellationToken.None);
+        await using var subscription = await caught.SubscribeAsync(async (x, token) => { }, async (ex, token) => { }, async result => completedTcs.TrySetResult(result), CancellationToken.None);
 
         var result = await completedTcs.Task;
         result.IsFailure.ShouldBeTrue();
@@ -128,7 +128,7 @@ public class CatchTest
 
         var handler = new Func<Exception, AsyncObservable<int>>(ex => AsyncObservable.Create<int>(async (observer, token) =>
         {
-            handlerSubscribed.SetResult();
+            handlerSubscribed.TrySetResult();
             return AsyncDisposable.Create(() =>
             {
                 handlerDisposed = true;

@@ -20,7 +20,7 @@ public class SubjectTest
         await using var subscription = await subject.Values.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result),
+            async result => completedTcs.TrySetResult(result),
             CancellationToken.None);
 
         await subject.OnNextAsync(1, CancellationToken.None);
@@ -46,7 +46,7 @@ public class SubjectTest
         await using var subscription = await subject.Values.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result),
+            async result => completedTcs.TrySetResult(result),
             CancellationToken.None);
 
         var result = await completedTcs.Task;
@@ -65,7 +65,7 @@ public class SubjectTest
         var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var subscription = await subject.Values.SubscribeAsync(
             async (x, token) => { },
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
 
@@ -111,7 +111,7 @@ public class SubjectTest
                 await subject.OnNextAsync(2, CancellationToken.None);
             }
 
-            if (x == 2) tcs.SetResult();
+            if (x == 2) tcs.TrySetResult();
         }, CancellationToken.None);
 
         await subject.OnNextAsync(1, CancellationToken.None);
@@ -137,7 +137,7 @@ public class SubjectTest
                 while (Volatile.Read(ref subscription) is null) await Task.Yield();
                 await subject.OnNextAsync(2, token);
                 await subscription!.DisposeAsync();
-                tcs.SetResult();
+                tcs.TrySetResult();
             }
         }, CancellationToken.None);
 

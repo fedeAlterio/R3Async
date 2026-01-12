@@ -16,7 +16,7 @@ public class TakeTest
             await observer.OnNextAsync(3, token);
             await observer.OnNextAsync(4, token);
             await observer.OnNextAsync(5, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -27,7 +27,7 @@ public class TakeTest
         await using var subscription = await taken.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         var completed = await completedTcs.Task;
@@ -51,7 +51,7 @@ public class TakeTest
         await using var subscription = await taken.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         var completed = await completedTcs.Task;
@@ -68,7 +68,7 @@ public class TakeTest
             await observer.OnNextAsync(2, token);
             await observer.OnNextAsync(3, token);
             await observer.OnCompletedAsync(Result.Success);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -79,7 +79,7 @@ public class TakeTest
         await using var subscription = await taken.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -98,7 +98,7 @@ public class TakeTest
             await observer.OnNextAsync(1, token);
             await observer.OnErrorResumeAsync(expected, token);
             await observer.OnNextAsync(2, token);
-            tcs.SetResult();
+            tcs.TrySetResult();
             return AsyncDisposable.Empty;
         });
 
@@ -108,7 +108,7 @@ public class TakeTest
 
         await using var subscription = await taken.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
 
@@ -134,7 +134,7 @@ public class TakeTest
 
         var taken = observable.Take(5);
         var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await taken.SubscribeAsync(async (x, token) => tcs.SetResult(x), CancellationToken.None);
+        var subscription = await taken.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         disposed.ShouldBeTrue();

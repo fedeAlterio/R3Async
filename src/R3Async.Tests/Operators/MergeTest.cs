@@ -19,7 +19,7 @@ public class MergeTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -31,7 +31,7 @@ public class MergeTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(4, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -43,7 +43,7 @@ public class MergeTest
                 await observer.OnNextAsync(inner1, token);
                 await observer.OnNextAsync(inner2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcsOuter.SetResult();
+                tcsOuter.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -55,7 +55,7 @@ public class MergeTest
         await using var subscription = await merged.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -77,7 +77,7 @@ public class MergeTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Failure(expected));
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -108,7 +108,7 @@ public class MergeTest
         await using var subscription = await merged.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => { if (result.IsFailure) failureTcs.SetResult(result.Exception); completedTcs.SetResult(Task.CompletedTask); },
+            async result => { if (result.IsFailure) failureTcs.TrySetResult(result.Exception); completedTcs.TrySetResult(Task.CompletedTask); },
             CancellationToken.None);
 
         await tcs1.Task;
@@ -144,7 +144,7 @@ public class MergeTest
         await using var subscription = await merged.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => { if (result.IsFailure) completedTcs.SetResult(result.Exception); },
+            async result => { if (result.IsFailure) completedTcs.TrySetResult(result.Exception); },
             CancellationToken.None);
 
         var ex = await completedTcs.Task;
@@ -164,7 +164,7 @@ public class MergeTest
             {
                 await observer.OnNextAsync(1, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -175,7 +175,7 @@ public class MergeTest
             {
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -199,8 +199,8 @@ public class MergeTest
 
         await using var subscription = await merged.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async (ex, token) => errorTcs.TrySetResult(ex),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -226,7 +226,7 @@ public class MergeTest
                 await observer.OnErrorResumeAsync(expected, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -237,7 +237,7 @@ public class MergeTest
             {
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return AsyncDisposable.Empty;
         });
@@ -257,8 +257,8 @@ public class MergeTest
 
         await using var subscription = await merged.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async (ex, token) => errorTcs.TrySetResult(ex),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -280,7 +280,7 @@ public class MergeTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcsStarted.SetResult();
+                tcsStarted.TrySetResult();
                 await Task.Yield();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
@@ -299,7 +299,7 @@ public class MergeTest
 
         var merged = outer.Merge();
         var valueTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await merged.SubscribeAsync(async (x, token) => valueTcs.SetResult(x), CancellationToken.None);
+        var subscription = await merged.SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);
 
         await tcsStarted.Task;
         await subscription.DisposeAsync();
@@ -321,7 +321,7 @@ public class MergeTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                completedTcs.SetResult();
+                completedTcs.TrySetResult();
             });
             return AsyncDisposable.Create(() =>
             {
@@ -349,7 +349,7 @@ public class MergeTest
             },
             CancellationToken.None);
 
-        tcs.SetResult();
+        tcs.TrySetResult();
         await completedTcs.Task;
         results.ShouldBe(new[] { 1 });
         disposed.ShouldBeTrue();
@@ -373,7 +373,7 @@ public class MergeTest
                 {
                     await observer.OnNextAsync(idx, token);
                     await observer.OnCompletedAsync(Result.Success);
-                    tcsList[idx].SetResult();
+                    tcsList[idx].TrySetResult();
                 });
                 return AsyncDisposable.Create(() =>
                 {
@@ -402,7 +402,7 @@ public class MergeTest
         await using var subscription = await merged.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await Task.WhenAll(tcsList.Select(t => t.Task));

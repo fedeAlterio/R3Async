@@ -23,7 +23,7 @@ public class ToEnumerableTest
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         var completed = await completedTcs.Task;
@@ -50,7 +50,7 @@ public class ToEnumerableTest
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result),
+            async result => completedTcs.TrySetResult(result),
             CancellationToken.None);
 
         var result = await completedTcs.Task;
@@ -81,7 +81,7 @@ public class ToEnumerableTest
             while (Volatile.Read(ref subscription) is null) await Task.Yield();
             // Dispose reentrantly from within OnNext
             await subscription.DisposeAsync();
-            onNextCalled.SetResult();
+            onNextCalled.TrySetResult();
         }, CancellationToken.None);
 
         // If DisposeAsync deadlocks when called reentrantly, this await will hang and the test will fail by timeout

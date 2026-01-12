@@ -20,7 +20,7 @@ public class DistinctTest
                 await observer.OnNextAsync(3, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -32,7 +32,7 @@ public class DistinctTest
         await using var subscription = await distinct.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -54,7 +54,7 @@ public class DistinctTest
                 await observer.OnNextAsync("b", token);
                 await observer.OnNextAsync("B", token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -66,7 +66,7 @@ public class DistinctTest
         await using var subscription = await distinct.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -90,7 +90,7 @@ public class DistinctTest
         await using var subscription = await distinct.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completed.SetResult(r.IsSuccess),
+            async r => completed.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -110,7 +110,7 @@ public class DistinctTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnErrorResumeAsync(expected, token);
                 await observer.OnNextAsync(2, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -121,7 +121,7 @@ public class DistinctTest
 
         await using var subscription = await distinct.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
 
@@ -142,7 +142,7 @@ public class DistinctTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
             {
@@ -153,7 +153,7 @@ public class DistinctTest
 
         var distinct = source.Distinct();
         var valueTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await distinct.SubscribeAsync(async (x, token) => valueTcs.SetResult(x), CancellationToken.None);
+        var subscription = await distinct.SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         disposed.ShouldBeTrue();

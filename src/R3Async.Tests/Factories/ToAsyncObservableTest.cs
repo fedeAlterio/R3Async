@@ -19,10 +19,10 @@ public class ToAsyncObservableTest
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
-        tcs.SetResult(42);
+        tcs.TrySetResult(42);
 
         var completed = await completedTcs.Task;
         completed.ShouldBeTrue();
@@ -42,7 +42,7 @@ public class ToAsyncObservableTest
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result),
+            async result => completedTcs.TrySetResult(result),
             CancellationToken.None);
 
         var expected = new InvalidOperationException("boom");
@@ -66,11 +66,11 @@ public class ToAsyncObservableTest
         {
             // Dispose reentrantly from within OnNext
             await subscription.DisposeAsync();
-            onNextCalled.SetResult();
+            onNextCalled.TrySetResult();
         }, CancellationToken.None);
 
         // Trigger the task completion which will cause the observable to call OnNext
-        tcs.SetResult(7);
+        tcs.TrySetResult(7);
 
         // If DisposeAsync deadlocks when called reentrantly, this await will hang and the test will fail by timeout
         await onNextCalled.Task;

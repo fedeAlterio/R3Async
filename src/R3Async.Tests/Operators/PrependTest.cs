@@ -17,7 +17,7 @@ public class PrependTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult(true);
+                tcs.TrySetResult(true);
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -29,7 +29,7 @@ public class PrependTest
         await using var subscription = await resultObs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completedTcs.SetResult(r.IsSuccess),
+            async r => completedTcs.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -48,7 +48,7 @@ public class PrependTest
             {
                 await observer.OnNextAsync(10, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult(true);
+                tcs.TrySetResult(true);
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -60,7 +60,7 @@ public class PrependTest
         await using var subscription = await resultObs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completedTcs.SetResult(r.IsSuccess),
+            async r => completedTcs.TrySetResult(r.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -93,7 +93,7 @@ public class PrependTest
         await using var subscription = await obs.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async r => completedTcs.SetResult(r),
+            async r => completedTcs.TrySetResult(r),
             CancellationToken.None);
 
         var result = await completedTcs.Task;
@@ -122,7 +122,7 @@ public class PrependTest
         {
             while (Volatile.Read(ref subscription) is null) await Task.Yield();
             await subscription.DisposeAsync();
-            onNextCalled.SetResult();
+            onNextCalled.TrySetResult();
         }, CancellationToken.None);
 
         await onNextCalled.Task;

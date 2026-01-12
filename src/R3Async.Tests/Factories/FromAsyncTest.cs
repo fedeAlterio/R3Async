@@ -20,7 +20,7 @@ public class FromAsyncTest
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         (await completedTcs.Task).ShouldBeTrue();
@@ -39,7 +39,7 @@ public class FromAsyncTest
         await using var subscription = await observable.SubscribeAsync(
             async (x, token) => { },
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result),
+            async result => completedTcs.TrySetResult(result),
             CancellationToken.None);
 
         var result = await completedTcs.Task;
@@ -62,7 +62,7 @@ public class FromAsyncTest
             catch (OperationCanceledException)
             {
                 await Task.Yield();
-                tcsCancelled.SetResult(true);
+                tcsCancelled.TrySetResult(true);
                 throw;
             }
         });

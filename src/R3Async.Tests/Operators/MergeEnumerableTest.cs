@@ -18,7 +18,7 @@ public class MergeEnumerableTest
                 await observer.OnNextAsync(1, token);
                 await observer.OnNextAsync(2, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs1.SetResult();
+                tcs1.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -29,7 +29,7 @@ public class MergeEnumerableTest
             {
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs2.SetResult();
+                tcs2.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -41,7 +41,7 @@ public class MergeEnumerableTest
         await using var subscription = await merge.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs1.Task;
@@ -61,7 +61,7 @@ public class MergeEnumerableTest
         await using var subscription = await merge.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completedTcs.SetResult(result.IsSuccess),
+            async result => completedTcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await completedTcs.Task;
@@ -104,7 +104,7 @@ public class MergeEnumerableTest
             {
                 if (result.IsFailure)
                     completedException = result.Exception;
-                completedTcs.SetResult();
+                completedTcs.TrySetResult();
             },
             CancellationToken.None);
 
@@ -123,7 +123,7 @@ public class MergeEnumerableTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
             {

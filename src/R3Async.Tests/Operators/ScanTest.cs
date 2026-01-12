@@ -18,7 +18,7 @@ public class ScanTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(3, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -30,7 +30,7 @@ public class ScanTest
         await using var subscription = await scanned.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completed.SetResult(result.IsSuccess),
+            async result => completed.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -51,7 +51,7 @@ public class ScanTest
                 await observer.OnNextAsync(2, token);
                 await observer.OnNextAsync(4, token);
                 await observer.OnCompletedAsync(Result.Success);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -68,7 +68,7 @@ public class ScanTest
         await using var subscription = await scanned.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completed.SetResult(result.IsSuccess),
+            async result => completed.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         await tcs.Task;
@@ -93,7 +93,7 @@ public class ScanTest
         await using var subscription = await scanned.SubscribeAsync(
             async (x, token) => results.Add(x),
             async (ex, token) => { },
-            async result => completed.SetResult(result.IsSuccess),
+            async result => completed.TrySetResult(result.IsSuccess),
             CancellationToken.None);
 
         (await completed.Task).ShouldBeTrue();
@@ -113,7 +113,7 @@ public class ScanTest
                 await observer.OnNextAsync(5, token);
                 await observer.OnErrorResumeAsync(expected, token);
                 await observer.OnNextAsync(7, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
@@ -124,7 +124,7 @@ public class ScanTest
 
         await using var subscription = await scanned.SubscribeAsync(
             async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.SetResult(ex),
+            async (ex, token) => errorTcs.TrySetResult(ex),
             null,
             CancellationToken.None);
 
@@ -145,7 +145,7 @@ public class ScanTest
             _ = Task.Run(async () =>
             {
                 await observer.OnNextAsync(1, token);
-                tcs.SetResult();
+                tcs.TrySetResult();
             });
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() =>
             {
@@ -156,7 +156,7 @@ public class ScanTest
 
         var scanned = source.Scan(0, (acc, x) => acc + x);
         var tcsValue = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await scanned.SubscribeAsync(async (x, token) => tcsValue.SetResult(x), CancellationToken.None);
+        var subscription = await scanned.SubscribeAsync(async (x, token) => tcsValue.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         disposed.ShouldBeTrue();
