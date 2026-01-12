@@ -182,6 +182,10 @@ Transform and compose observable streams:
 #### Concurrency & Scheduling
 - `ObserveOn` - Control execution context for downstream operators
 
+#### Multicasting
+- `Multicast` - Share a single subscription to the source observable among multiple observers using a subject
+- `Publish` - Multicast using a standard Subject or BehaviorSubject
+
 ### Aggregation & Terminal Operations
 
 Async methods that consume the observable and return results:
@@ -377,6 +381,121 @@ await subject.OnNextAsync(300, CancellationToken.None);
 // Output: Sub2: 300
 ```
 
+### Multicast and Publish
+
+Multicast operators allow you to share a single subscription to the source observable among multiple observers. This is useful for "hot" observables where you want to avoid re-executing the source logic for each subscriber.
+
+#### ConnectableAsyncObservable
+
+The `Multicast` and `Publish` operators return a `ConnectableAsyncObservable<T>`, which has two key methods:
+
+- **`SubscribeAsync`** - Subscribe observers to the connectable observable (same as regular AsyncObservable)
+- **`ConnectAsync`** - Connect to the source observable and start multicasting values to all subscribers
+
+```csharp
+public abstract class ConnectableAsyncObservable<T> : AsyncObservable<T>
+{
+    public abstract ValueTask<IAsyncDisposable> ConnectAsync(CancellationToken cancellationToken);
+}
+```
+
+**Important:** Subscribers will not receive values until `ConnectAsync` is called. The connection can be disposed to stop the source subscription.
+
+#### Multicast
+
+The `Multicast` operator converts a cold observable into a hot connectable observable using a subject:
+
+```csharp
+var source = AsyncObservable.CreateAsBackgroundJob<int>(async (observer, ct) =>
+{
+    await observer.OnNextAsync(1, ct);
+    await observer.OnNextAsync(2, ct);
+    await observer.OnNextAsync(3, ct);
+    await observer.OnCompletedAsync(Result.Success);
+});
+
+var subject = Subject.Create<int>();
+var multicast = source.Multicast(subject);
+
+// Subscribe multiple observers
+await using var sub1 = await multicast.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Observer 1: {value}")
+);
+
+await using var sub2 = await multicast.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Observer 2: {value}")
+);
+
+// Connect to start receiving values
+await using var connection = await multicast.ConnectAsync(CancellationToken.None);
+
+// Both observers receive all values from the single source subscription
+// Output:
+// Observer 1: 1
+// Observer 2: 1
+// Observer 1: 2
+// Observer 2: 2
+// Observer 1: 3
+// Observer 2: 3
+```
+
+#### Publish
+
+The `Publish` operator is a convenience method that calls `Multicast` with a new Subject:
+
+```csharp
+// These are equivalent:
+var multicast1 = source.Multicast(Subject.Create<int>());
+var multicast2 = source.Publish();
+
+// Publish with options
+var multicast3 = source.Publish(new SubjectCreationOptions
+{
+    PublishingOption = PublishingOption.Concurrent
+});
+
+// Publish with BehaviorSubject (provides initial value)
+var multicast4 = source.Publish(initialValue: 0);
+
+// Publish with BehaviorSubject and options
+var multicast5 = source.Publish(initialValue: 0, new BehaviorSubjectCreationOptions
+{
+    PublishingOption = PublishingOption.Serial
+});
+```
+
+#### Key Behaviors
+
+**Shared Subscription:** The source observable is subscribed to only once when `ConnectAsync` is called, regardless of how many observers are subscribed.
+
+**Late Subscribers:** Observers that subscribe after `ConnectAsync` is called will only receive subsequent values, not past values (unless using a BehaviorSubject):
+
+```csharp
+var multicast = source.Publish();
+await using var connection = await multicast.ConnectAsync(CancellationToken.None);
+
+// Late subscriber will miss earlier values
+await using var lateSubscriber = await multicast.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Late: {value}")
+);
+```
+
+**Publish with BehaviorSubject:** When using `Publish` with an initial value (creating a BehaviorSubject), late subscribers immediately receive the most recent value:
+
+```csharp
+var multicast = source.Publish(initialValue: 0);
+await using var connection = await multicast.ConnectAsync(CancellationToken.None);
+
+// Late subscriber receives the last emitted value immediately
+await using var lateSubscriber = await multicast.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Late: {value}")
+);
+```
+
+**Connection Management:** Disposing the connection stops the source subscription. Multiple calls to `ConnectAsync` return the same connection (idempotent).
+
+**Completion and Error Propagation:** When the source completes or errors, all subscribers receive the completion or error notification.
+
 ### Disposables
 
 Async disposable utilities for resource management:
@@ -492,7 +611,6 @@ Note: `OperationCanceledException` is automatically ignored by the unhandled exc
 
 R3Async is currently under development and some features from R3 and Rx.NET are not yet implemented:
 
-- **Publish / IConnectableObservable** - Hot observable multicasting support
 - **Throttle / Debounce** - Time-based filtering operators
 - **Zip** - Combine multiple observables pairwise
 - **Race (Amb)** - Return the first observable to emit
