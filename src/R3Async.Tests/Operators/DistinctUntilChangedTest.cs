@@ -156,7 +156,7 @@ public class DistinctUntilChangedTest
 
         var sut = source.DistinctUntilChanged();
         var valueTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = await sut.SubscribeAsync(async (x, token) => valueTcs.SetResult(x), CancellationToken.None);
+        var subscription = await sut.SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
         disposed.ShouldBeTrue();
