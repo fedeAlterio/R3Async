@@ -91,12 +91,14 @@ public class MulticastTest
     {
         var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var tcs2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs3 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var source = AsyncObservable.CreateAsBackgroundJob<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
             tcs1.SetResult();
             await tcs2.Task;
             await observer.OnNextAsync(2, token);
+            tcs3.SetResult();
         });
 
         var subject = Subject.Create<int>();
@@ -116,7 +118,7 @@ public class MulticastTest
             CancellationToken.None);
 
         tcs2.SetResult();
-        await Task.Yield();
+        await tcs3.Task;
 
         results1.ShouldBe(new[] { 1, 2 });
         results2.ShouldBe(new[] { 2 });

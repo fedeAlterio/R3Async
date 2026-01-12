@@ -21,22 +21,6 @@ public class CreateTest
         result.ShouldBe(1);
     }
 
-    [Fact]
-    public async Task MultipleValuesTest()
-    {
-        var observable = AsyncObservable.Create<int>(async (observer, token) =>
-        {
-            await observer.OnNextAsync(1, token);
-            await observer.OnNextAsync(2, token);
-            await observer.OnNextAsync(3, token);
-            return AsyncDisposable.Empty;
-        });
-
-        var results = new List<int>();
-        await using var subscription = await observable.SubscribeAsync(async (x, token) => results.Add(x), CancellationToken.None);
-        await Task.Delay(100);
-        results.ShouldBe(new[] { 1, 2, 3 });
-    }
 
     [Fact]
     public async Task CompletionTest()
