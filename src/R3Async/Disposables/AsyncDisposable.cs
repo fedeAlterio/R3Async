@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace R3Async;
@@ -9,7 +10,8 @@ public static class AsyncDisposable
     public static IAsyncDisposable Empty { get; } = new EmptyAsyncDisposable();
     sealed class AnonymousAsyncDisposable(Func<ValueTask> disposeAsync) : IAsyncDisposable
     {
-        public ValueTask DisposeAsync() => disposeAsync();
+        int _disposed;
+        public ValueTask DisposeAsync() => Interlocked.Exchange(ref _disposed, 1) == 1 ? default : disposeAsync();
     }
 
     sealed class EmptyAsyncDisposable : IAsyncDisposable

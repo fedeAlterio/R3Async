@@ -15,6 +15,7 @@ public abstract class BaseSubject<T> : AsyncObservable<T>, ISubject<T>
     AsyncObservable<T> ISubject<T>.Values => this;
     protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Result? result;
 
         lock (_gate)

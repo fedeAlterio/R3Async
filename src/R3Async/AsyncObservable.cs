@@ -32,7 +32,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     readonly CancellationTokenSource _disposeCts = new();
     int _callsCount;
     TaskCompletionSource<object?>? _allCallsCompletedTcs;
-    
+    internal bool IsDisposed => _disposeCts.IsCancellationRequested;
     IAsyncDisposable? _sourceSubscription;
     internal ValueTask SetSourceSubscriptionAsync(IAsyncDisposable? value) => SingleAssignmentAsyncDisposable.SetDisposableAsync(ref _sourceSubscription, value);
 

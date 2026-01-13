@@ -7,7 +7,7 @@ namespace R3Async.Tests.Subjects;
 public class BehaviorSubjectTest
 {
     static ISubject<int> CreateBehavior(int startValue, PublishingOption option) => 
-        Subject.CreateBehavior(startValue, new BehaviorSubjectCreationOptions { PublishingOption = option });
+        Subject.CreateBehavior(startValue, new BehaviorSubjectCreationOptions { PublishingOption = option, IsStateless = false});
 
     [Theory]
     [InlineData(PublishingOption.Serial)]
@@ -372,7 +372,7 @@ public class BehaviorSubjectTest
     public async Task BehaviorSubject_ReferenceTypeStartValue_RetainsSameReference(PublishingOption option)
     {
         var startObject = new object();
-        var subject = Subject.CreateBehavior(startObject, new BehaviorSubjectCreationOptions { PublishingOption = option });
+        var subject = Subject.CreateBehavior(startObject, new BehaviorSubjectCreationOptions { PublishingOption = option, IsStateless = false});
         object? receivedObject = null;
 
         await using var subscription = await subject.Values.SubscribeAsync(
@@ -387,7 +387,7 @@ public class BehaviorSubjectTest
     [InlineData(PublishingOption.Concurrent)]
     public async Task BehaviorSubject_NullStartValue_DeliversNull(PublishingOption option)
     {
-        var subject = Subject.CreateBehavior<string?>(null, new BehaviorSubjectCreationOptions { PublishingOption = option });
+        var subject = Subject.CreateBehavior<string?>(null, new BehaviorSubjectCreationOptions { PublishingOption = option, IsStateless = false });
         var received = false;
         string? receivedValue = "not null";
 

@@ -368,7 +368,7 @@ public class MulticastTest
             tcs.SetResult();
         });
 
-        var subject = Subject.Create<int>(new SubjectCreationOptions { PublishingOption = PublishingOption.Concurrent });
+        var subject = Subject.Create<int>(new SubjectCreationOptions { PublishingOption = PublishingOption.Concurrent, IsStateless = false });
         var multicast = source.Multicast(subject);
 
         var results1 = new List<int>();
