@@ -3,10 +3,10 @@ using Shouldly;
 
 namespace R3Async.Tests.Operators;
 
-public class FinallyTest
+public class OnDisposeTests
 {
     [Fact]
-    public async Task Finally_ExecutesOnCompleted_Sync()
+    public async Task OnDispose_ExecutesOnCompleted_Sync()
     {
         var executed = false;
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
@@ -16,7 +16,7 @@ public class FinallyTest
             return AsyncDisposable.Empty;
         });
 
-        var finalObs = observable.Finally(() => executed = true);
+        var finalObs = observable.OnDispose(() => executed = true);
         var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await finalObs.SubscribeAsync(
@@ -30,7 +30,7 @@ public class FinallyTest
     }
 
     [Fact]
-    public async Task Finally_ExecutesOnCompleted_Async()
+    public async Task OnDispose_ExecutesOnCompleted_Async()
     {
         var executed = false;
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
@@ -40,7 +40,7 @@ public class FinallyTest
             return AsyncDisposable.Empty;
         });
 
-        var finalObs = observable.Finally(async () =>
+        var finalObs = observable.OnDispose(async () =>
         {
             await Task.Yield();
             executed = true;
@@ -59,7 +59,7 @@ public class FinallyTest
     }
 
     [Fact]
-    public async Task Finally_ExecutesOnError()
+    public async Task OnDispose_ExecutesOnError()
     {
         var executed = false;
         var expected = new InvalidOperationException("fail");
@@ -71,7 +71,7 @@ public class FinallyTest
             return AsyncDisposable.Empty;
         });
 
-        var finalObs = observable.Finally(() => executed = true);
+        var finalObs = observable.OnDispose(() => executed = true);
         var completed = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await finalObs.SubscribeAsync(
@@ -87,7 +87,7 @@ public class FinallyTest
     }
 
     [Fact]
-    public async Task Finally_ExecutesOnDispose()
+    public async Task OnDispose_ExecutesOnDispose()
     {
         var executed = false;
         var tcsBlock = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -102,7 +102,7 @@ public class FinallyTest
             return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
         });
 
-        var finalObs = observable.Finally(() => executed = true);
+        var finalObs = observable.OnDispose(() => executed = true);
 
         var valueTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var subscription = await finalObs.SubscribeAsync(async (x, token) => valueTcs.TrySetResult(x), CancellationToken.None);

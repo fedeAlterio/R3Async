@@ -7,26 +7,26 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
-        public AsyncObservable<T> Finally(Func<ValueTask> onDispose)
+        public AsyncObservable<T> OnDispose(Func<ValueTask> onDispose)
         {
             return Create<T>((observer, token) =>
             {
-                var newObserver = new FinallyObserver<T>(observer, onDispose);
+                var newObserver = new OnDisposeObserver<T>(observer, onDispose);
                 return @this.SubscribeAsync(newObserver, token);
             });
         }
 
-        public AsyncObservable<T> Finally(Action onDispose)
+        public AsyncObservable<T> OnDispose(Action onDispose)
         {
             return Create<T>((observer, token) =>
             {
-                var newObserver = new FinallyObserverSync<T>(observer, onDispose);
+                var newObserver = new OnDisposeObserverSync<T>(observer, onDispose);
                 return @this.SubscribeAsync(newObserver, token);
             });
         }
     }
 
-    sealed class FinallyObserverSync<T>(AsyncObserver<T> observer, Action finallySync) : AsyncObserver<T>
+    sealed class OnDisposeObserverSync<T>(AsyncObserver<T> observer, Action finallySync) : AsyncObserver<T>
     {
         protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
             => observer.OnNextAsync(value, cancellationToken);
@@ -50,7 +50,7 @@ public static partial class AsyncObservable
         }
     }
 
-    class FinallyObserver<T>(AsyncObserver<T> observer, Func<ValueTask> finallyAsync) : AsyncObserver<T>
+    class OnDisposeObserver<T>(AsyncObserver<T> observer, Func<ValueTask> finallyAsync) : AsyncObserver<T>
     {
         protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
             => observer.OnNextAsync(value, cancellationToken);
