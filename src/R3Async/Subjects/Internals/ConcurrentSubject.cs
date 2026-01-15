@@ -10,22 +10,16 @@ internal sealed class ConcurrentSubject<T> : BaseSubject<T>
 {
     protected override ValueTask OnNextAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, T value, CancellationToken cancellationToken)
     {
-        if (observers.Count == 0) return default;
-       
-        return new ValueTask(Task.WhenAll(observers.Select(x => x.OnNextAsync(value, cancellationToken).AsTask())));
+        return Helpers.ForwardOnNextConcurrently(observers, value, cancellationToken);
     }
 
     protected override ValueTask OnErrorResumeAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, Exception error, CancellationToken cancellationToken)
     {
-        if (observers.Count == 0) return default;
-
-        return new ValueTask(Task.WhenAll(observers.Select(x => x.OnErrorResumeAsync(error, cancellationToken).AsTask())));
+        return Helpers.ForwardOnErrorResumeConcurrently(observers, error, cancellationToken);
     }
 
     protected override ValueTask OnCompletedAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, Result result)
     {
-        if (observers.Count == 0) return default;
-
-        return new ValueTask(Task.WhenAll(observers.Select(x => x.OnCompletedAsync(result).AsTask())));
+        return Helpers.ForwardOnCompletedConcurrently(observers, result);
     }
 }

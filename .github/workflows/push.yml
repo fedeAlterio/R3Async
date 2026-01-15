@@ -1,9 +1,8 @@
-name: .NET
+name: .Build&Tests
 
 on:
   push:
-    branches: [ "*" ]
-  create:
+    branches: [ "**" ]
 
 jobs:
   build:

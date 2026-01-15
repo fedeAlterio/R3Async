@@ -61,6 +61,7 @@ public abstract class BaseBehaviorSubject<T>(T startValue) : AsyncObservable<T>,
 
     protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Result? result;
         using (await _gate.LockAsync())
         {

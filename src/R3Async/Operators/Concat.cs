@@ -90,13 +90,12 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
                 return;
             }
             
+            _cts.Cancel();
+            await _innerDisposable.DisposeAsync();
             if (result is not null)
             {
                 await observer.OnCompletedAsync(result.Value);
             }
-
-            _cts.Cancel();
-            await _innerDisposable.DisposeAsync();
             _enumerator.Dispose();
             _cts.Dispose();
         }
