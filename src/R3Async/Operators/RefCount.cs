@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using R3Async.Internals;
@@ -13,21 +12,23 @@ public static partial class AsyncObservable
     sealed class RefCountObservable<T>(ConnectableAsyncObservable<T> source) : AsyncObservable<T>
     {
         readonly AsyncGate _gate = new();
-        int _refCount = 0;
-        IAsyncDisposable? _connection;
+        int _refCount;
+        SingleAssignmentAsyncDisposable? _connection;
 
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
             using(await _gate.LockAsync())
             {
-                // incr refCount before Subscribe(completed source decrement refCount in Subscribe)
+                // incr refCount before Subscribe(completed source decrement refCxount in Subscribe)
                 ++_refCount;
                 bool needConnect = _refCount == 1;
                 var coObserver = new RefCountObsever(this, observer);
                 var subcription = await source.SubscribeAsync(coObserver, cancellationToken);
                 if (needConnect && !coObserver.IsDisposed)
                 {
-                    _connection = await source.ConnectAsync(cancellationToken);
+                    SingleAssignmentAsyncDisposable connection = new();
+                    _connection = connection;
+                    await connection.SetDisposableAsync(await source.ConnectAsync(cancellationToken));
                 }
                 return subcription;
             }

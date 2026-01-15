@@ -8,7 +8,7 @@ namespace R3Async.Internals;
 internal sealed class MulticastAsyncObservable<T>(AsyncObservable<T> observable, ISubject<T> subject) : ConnectableAsyncObservable<T>
 {
     readonly AsyncGate _gate = new();
-    IAsyncDisposable? _connection;
+    SingleAssignmentAsyncDisposable? _connection;
 
     protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
     {
@@ -24,8 +24,9 @@ internal sealed class MulticastAsyncObservable<T>(AsyncObservable<T> observable,
                 return _connection;
             }
 
-            var connection = await observable.SubscribeAsync(subject.AsAsyncObserver(), cancellationToken);
+            SingleAssignmentAsyncDisposable? connection = new();
             _connection = connection;
+            await connection.SetDisposableAsync(await observable.SubscribeAsync(subject.AsAsyncObserver(), cancellationToken));
             return AsyncDisposable.Create(async () =>
             {
                 using (await _gate.LockAsync())
@@ -35,6 +36,7 @@ internal sealed class MulticastAsyncObservable<T>(AsyncObservable<T> observable,
 
                     var localConn = connection;
                     connection = null;
+                    _connection = null;
                     await localConn.DisposeAsync();
                 }
             });

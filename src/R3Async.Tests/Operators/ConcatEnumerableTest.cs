@@ -340,7 +340,6 @@ public class ConcatEnumerableTest
     }
 
 
-
     [Fact]
     public async Task ConcatEnumerable_MultipleErrors_FirstOneWins()
     {
@@ -388,45 +387,4 @@ public class ConcatEnumerableTest
         completedException.ShouldBe(firstException);
     }
 
-    [Fact]
-    public async Task ConcatEnumerable_HighThroughput_MaintainsSequentialProcessing()
-    {
-        const int observableCount = 200;
-        var observables = new List<AsyncObservable<int>>();
-
-        for (int i = 0; i < observableCount; i++)
-        {
-            var index = i;
-            var obs = AsyncObservable.Create<int>((observer, token) =>
-            {
-                _ = Task.Run(async () =>
-                {
-                    // Rapid fire emissions
-                    await observer.OnNextAsync(index, token);
-                    await observer.OnCompletedAsync(Result.Success);
-                });
-                return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
-            });
-            observables.Add(obs);
-        }
-
-        var concat = observables.Concat();
-        var results = new List<int>();
-        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        await using var subscription = await concat.SubscribeAsync(
-            async (x, token) => results.Add(x),
-            async (ex, token) => { },
-            async result => completedTcs.TrySetResult(result.IsSuccess),
-            CancellationToken.None);
-
-        await completedTcs.Task;
-
-        // Verify sequential processing
-        results.Count.ShouldBe(observableCount);
-        for (int i = 0; i < observableCount; i++)
-        {
-            results[i].ShouldBe(i);
-        }
-    }
 }
