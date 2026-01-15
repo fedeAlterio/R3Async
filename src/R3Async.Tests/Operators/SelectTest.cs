@@ -8,7 +8,7 @@ public class SelectTest
     [Fact]
     public async Task SyncSelectorTransformTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -29,7 +29,7 @@ public class SelectTest
     [Fact]
     public async Task AsyncSelectorTransformTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -55,7 +55,7 @@ public class SelectTest
     [Fact]
     public async Task SyncSelectorTypeChangeTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -76,7 +76,7 @@ public class SelectTest
     [Fact]
     public async Task AsyncSelectorTypeChangeTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(10, token);
@@ -111,7 +111,7 @@ public class SelectTest
         });
 
         var mapped = observable.Select(x => x + 10);
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await mapped.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -136,7 +136,7 @@ public class SelectTest
         });
 
         var mapped = observable.Select(async (x, token) => x * 2);
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await mapped.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -153,7 +153,7 @@ public class SelectTest
     public async Task SyncSelectorErrorPropagationTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -164,7 +164,7 @@ public class SelectTest
         });
 
         var mapped = observable.Select(x => x * 2);
-        var errorTcs = new TaskCompletionSource<Exception>();
+        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await mapped.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -182,7 +182,7 @@ public class SelectTest
     public async Task AsyncSelectorErrorPropagationTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -211,7 +211,7 @@ public class SelectTest
     public async Task SyncSelectorExceptionTest()
     {
         var expectedException = new InvalidOperationException("selector failed");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -246,7 +246,7 @@ public class SelectTest
     public async Task AsyncSelectorExceptionTest()
     {
         var expectedException = new InvalidOperationException("selector failed");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -329,7 +329,7 @@ public class SelectTest
     [Fact]
     public async Task ChainedSelectTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -354,7 +354,7 @@ public class SelectTest
     [Fact]
     public async Task SelectWhereChainTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             for (int i = 1; i <= 5; i++)
@@ -385,7 +385,7 @@ public class SelectTest
         });
 
         var mapped = observable.Select(x => x * 2);
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
         await using var subscription = await mapped.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -440,7 +440,7 @@ public class SelectTest
     [Fact]
     public async Task SyncSelectorComplexTransformTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<string>(async (observer, token) =>
         {
             await observer.OnNextAsync("hello", token);
@@ -462,7 +462,7 @@ public class SelectTest
     [Fact]
     public async Task AsyncSelectorComplexTransformTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);

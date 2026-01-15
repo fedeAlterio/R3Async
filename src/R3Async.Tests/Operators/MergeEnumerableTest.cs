@@ -95,7 +95,7 @@ public class MergeEnumerableTest
         var merge = new[] { obs1, obs2 }.Merge();
         var results = new List<int>();
         Exception? completedException = null;
-        var completedTcs = new TaskCompletionSource();
+        var completedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await merge.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -116,7 +116,7 @@ public class MergeEnumerableTest
     public async Task MergeEnumerable_Disposal()
     {
         var disposed = false;
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var obs1 = AsyncObservable.Create<int>((observer, token) =>
         {

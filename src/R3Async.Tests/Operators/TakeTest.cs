@@ -46,7 +46,7 @@ public class TakeTest
         });
 
         var taken = observable.Take(0);
-        var completedTcs = new TaskCompletionSource<bool>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await taken.SubscribeAsync(
             async (x, token) => { },
@@ -74,7 +74,7 @@ public class TakeTest
 
         var taken = observable.Take(10);
         var results = new List<int>();
-        var completedTcs = new TaskCompletionSource<bool>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await taken.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -103,7 +103,7 @@ public class TakeTest
         });
 
         var taken = observable.Take(5);
-        var errorTcs = new TaskCompletionSource<Exception>();
+        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var results = new List<int>();
 
         await using var subscription = await taken.SubscribeAsync(

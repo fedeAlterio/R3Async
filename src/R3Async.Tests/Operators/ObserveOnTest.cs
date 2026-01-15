@@ -492,7 +492,7 @@ public class ObserveOnTest
             }
             else
             {
-                var tcs = new TaskCompletionSource();
+                var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 Post(_ =>
                 {
                     try

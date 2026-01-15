@@ -9,7 +9,7 @@ public class DeferTest
     public async Task SimpleDeferTest()
     {
         var factoryCalled = false;
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         
         var deferred = AsyncObservable.Defer(async token =>
         {
@@ -37,8 +37,8 @@ public class DeferTest
     public async Task DeferFactoryCalledOnEachSubscriptionTest()
     {
         var factoryCallCount = 0;
-        var tcs1 = new TaskCompletionSource();
-        var tcs2 = new TaskCompletionSource();
+        var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         
         var deferred = AsyncObservable.Defer(async token =>
         {
@@ -129,7 +129,7 @@ public class DeferTest
     public async Task DeferWithErrorResumeTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deferred = AsyncObservable.Defer(async token =>
         {
             return AsyncObservable.Create<int>(async (observer, t) =>
@@ -199,7 +199,7 @@ public class DeferTest
     [Fact]
     public async Task DeferWithOperatorsTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deferred = AsyncObservable.Defer(async token =>
         {
             return AsyncObservable.Create<int>(async (observer, t) =>
@@ -227,7 +227,7 @@ public class DeferTest
     {
         var cts = new CancellationTokenSource();
         CancellationToken capturedToken = default;
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         
         var deferred = AsyncObservable.Defer(async token =>
         {
@@ -319,8 +319,8 @@ public class DeferTest
     public async Task DeferDynamicObservableSelectionTest()
     {
         var useFirst = true;
-        var tcs1 = new TaskCompletionSource();
-        var tcs2 = new TaskCompletionSource();
+        var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         
         var deferred = AsyncObservable.Defer(async token =>
         {
@@ -359,7 +359,7 @@ public class DeferTest
     [Fact]
     public async Task DeferAsyncFactoryTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deferred = AsyncObservable.Defer(async token =>
         {
             await Task.Delay(10, token);
@@ -383,7 +383,7 @@ public class DeferTest
     {
         var outerFactoryCalled = false;
         var innerFactoryCalled = false;
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         
         var deferred = AsyncObservable.Defer(async token =>
         {

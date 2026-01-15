@@ -8,7 +8,7 @@ public class DoTest
     [Fact]
     public async Task AsyncOnNextSideEffectTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -36,7 +36,7 @@ public class DoTest
     [Fact]
     public async Task SyncOnNextSideEffectTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -61,7 +61,7 @@ public class DoTest
     public async Task AsyncOnErrorResumeSideEffectTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -99,7 +99,7 @@ public class DoTest
     public async Task SyncOnErrorResumeSideEffectTest()
     {
         var expectedException = new InvalidOperationException("test error");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -290,7 +290,7 @@ public class DoTest
     [Fact]
     public async Task AsyncDoWithoutSideEffectsTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -311,7 +311,7 @@ public class DoTest
     [Fact]
     public async Task SyncDoWithoutSideEffectsTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -384,7 +384,7 @@ public class DoTest
     [Fact]
     public async Task ChainedDoTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -415,7 +415,7 @@ public class DoTest
     [Fact]
     public async Task DoWithSelectWhereChainTest()
     {
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             for (int i = 1; i <= 5; i++)
@@ -510,7 +510,7 @@ public class DoTest
     public async Task SyncOnNextExceptionPropagationTest()
     {
         var expectedException = new InvalidOperationException("side effect failed");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);
@@ -544,7 +544,7 @@ public class DoTest
     public async Task AsyncOnNextExceptionPropagationTest()
     {
         var expectedException = new InvalidOperationException("side effect failed");
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observable = AsyncObservable.Create<int>(async (observer, token) =>
         {
             await observer.OnNextAsync(1, token);

@@ -8,8 +8,8 @@ public class ConcatEnumerableTest
     [Fact]
     public async Task ConcatEnumerable_Basic()
     {
-        var tcs1 = new TaskCompletionSource();
-        var tcs2 = new TaskCompletionSource();
+        var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var obs1 = AsyncObservable.Create<int>((observer, token) =>
         {
@@ -36,7 +36,7 @@ public class ConcatEnumerableTest
 
         var concat = new[] { obs1, obs2 }.Concat();
         var results = new List<int>();
-        var completedTcs = new TaskCompletionSource<bool>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await concat.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -56,7 +56,7 @@ public class ConcatEnumerableTest
     {
         var concat = new AsyncObservable<int>[0].Concat();
         var results = new List<int>();
-        var completedTcs = new TaskCompletionSource<bool>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await concat.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -95,7 +95,7 @@ public class ConcatEnumerableTest
         var concat = new[] { obs1, obs2 }.Concat();
         var results = new List<int>();
         Exception? completedException = null;
-        var completedTcs = new TaskCompletionSource();
+        var completedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await concat.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -135,7 +135,7 @@ public class ConcatEnumerableTest
         var concat = new[] { badObs, goodObs }.Concat();
         var results = new List<int>();
         Exception? completedException = null;
-        var completedTcs = new TaskCompletionSource();
+        var completedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var subscription = await concat.SubscribeAsync(
             async (x, token) => results.Add(x),
@@ -157,7 +157,7 @@ public class ConcatEnumerableTest
     public async Task ConcatEnumerable_Disposal()
     {
         var disposed = false;
-        var tcs = new TaskCompletionSource();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var obs1 = AsyncObservable.Create<int>((observer, token) =>
         {
@@ -200,8 +200,8 @@ public class ConcatEnumerableTest
     public async Task ConcatEnumerable_Cancellation_BeforeFirstCompletes()
     {
         var disposed = false;
-        var tcsStart = new TaskCompletionSource();
-        var tcsContinue = new TaskCompletionSource();
+        var tcsStart = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcsContinue = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var obs1 = AsyncObservable.Create<int>((observer, token) =>
         {
@@ -245,9 +245,9 @@ public class ConcatEnumerableTest
     {
         var disposed1 = false;
         var disposed2 = false;
-        var tcs1 = new TaskCompletionSource();
-        var tcs2Start = new TaskCompletionSource();
-        var tcs2Continue = new TaskCompletionSource();
+        var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs2Start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs2Continue = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var obs1 = AsyncObservable.Create<int>((observer, token) =>
         {
@@ -291,5 +291,142 @@ public class ConcatEnumerableTest
         disposed1.ShouldBeTrue();
         disposed2.ShouldBeTrue();
         results.ShouldBe(new[] { 1, 2 });
+    }
+
+    [Fact]
+    public async Task ConcatEnumerable_ManyObservables_ShortDuration_Sequential()
+    {
+        const int observableCount = 100;
+        const int valuesPerObservable = 5;
+
+        var observables = new List<AsyncObservable<int>>();
+        for (int i = 0; i < observableCount; i++)
+        {
+            var baseValue = i * valuesPerObservable;
+            var obs = AsyncObservable.Create<int>((observer, token) =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    for (int j = 0; j < valuesPerObservable; j++)
+                    {
+                        await observer.OnNextAsync(baseValue + j, token);
+                        await Task.Yield(); // Short delay to simulate work
+                    }
+                    await observer.OnCompletedAsync(Result.Success);
+                });
+                return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
+            });
+            observables.Add(obs);
+        }
+
+        var concat = observables.Concat();
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await concat.SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result.IsSuccess),
+            CancellationToken.None);
+
+        await completedTcs.Task;
+
+        // Verify all values received in order
+        results.Count.ShouldBe(observableCount * valuesPerObservable);
+        for (int i = 0; i < results.Count; i++)
+        {
+            results[i].ShouldBe(i);
+        }
+    }
+
+
+
+    [Fact]
+    public async Task ConcatEnumerable_MultipleErrors_FirstOneWins()
+    {
+        var firstException = new InvalidOperationException("first");
+        var secondException = new InvalidOperationException("second");
+
+        var obs1 = AsyncObservable.Create<int>((observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await observer.OnNextAsync(1, token);
+                await observer.OnCompletedAsync(Result.Failure(firstException));
+            });
+            return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
+        });
+
+        var obs2 = AsyncObservable.Create<int>((observer, token) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await observer.OnNextAsync(2, token);
+                await observer.OnCompletedAsync(Result.Failure(secondException));
+            });
+            return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
+        });
+
+        var concat = new[] { obs1, obs2 }.Concat();
+        var results = new List<int>();
+        Exception? completedException = null;
+        var completedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await concat.SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result =>
+            {
+                if (result.IsFailure)
+                    completedException = result.Exception;
+                completedTcs.TrySetResult();
+            },
+            CancellationToken.None);
+
+        await completedTcs.Task;
+        results.ShouldBe(new[] { 1 });
+        completedException.ShouldBe(firstException);
+    }
+
+    [Fact]
+    public async Task ConcatEnumerable_HighThroughput_MaintainsSequentialProcessing()
+    {
+        const int observableCount = 200;
+        var observables = new List<AsyncObservable<int>>();
+
+        for (int i = 0; i < observableCount; i++)
+        {
+            var index = i;
+            var obs = AsyncObservable.Create<int>((observer, token) =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    // Rapid fire emissions
+                    await observer.OnNextAsync(index, token);
+                    await observer.OnCompletedAsync(Result.Success);
+                });
+                return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
+            });
+            observables.Add(obs);
+        }
+
+        var concat = observables.Concat();
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await concat.SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result.IsSuccess),
+            CancellationToken.None);
+
+        await completedTcs.Task;
+
+        // Verify sequential processing
+        results.Count.ShouldBe(observableCount);
+        for (int i = 0; i < observableCount; i++)
+        {
+            results[i].ShouldBe(i);
+        }
     }
 }
