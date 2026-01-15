@@ -1,9 +1,10 @@
-name: .NET
+name: .Build&Tests
 
 on:
   push:
-    branches: [ "*" ]
-  create:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
 
 jobs:
   build:
