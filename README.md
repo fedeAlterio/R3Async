@@ -185,6 +185,7 @@ Transform and compose observable streams:
 #### Multicasting
 - `Multicast` - Share a single subscription to the source observable among multiple observers using a subject
 - `Publish` - Multicast using a standard Subject or BehaviorSubject
+- `RefCount` - Automatically connect/disconnect a connectable observable based on subscriber count
 
 ### Aggregation & Terminal Operations
 
@@ -464,37 +465,52 @@ var multicast5 = source.Publish(initialValue: 0, new BehaviorSubjectCreationOpti
 });
 ```
 
-#### Key Behaviors
+#### RefCount
 
-**Shared Subscription:** The source observable is subscribed to only once when `ConnectAsync` is called, regardless of how many observers are subscribed.
+The `RefCount` operator automatically manages connections to a `ConnectableAsyncObservable` based on the number of subscribers. When the first subscriber subscribes, it connects to the source. When the last subscriber unsubscribes, it disconnects.
 
-**Late Subscribers:** Observers that subscribe after `ConnectAsync` is called will only receive subsequent values, not past values (unless using a BehaviorSubject):
+RefCount is particularly useful with stateless subjects to create observables that automatically reset when all observers unsubscribe.
+
+### Stateless Subjects
+
+Stateless subjects are a variant of subjects that automatically reset their state when all observers unsubscribe. This is useful for creating reusable hot observables that can be "restarted" without creating a new instance.
+
+#### Stateless Subject vs Regular Subject
+
+- **Regular Subject**: Once completed, it stays completed. New subscribers immediately receive the completion notification.
+- **Stateless Subject**: Forgets completion when all observers unsubscribe. After reset, it acts as a fresh proxy that can receive and forward new values.
+
+
+#### Stateless BehaviorSubject vs Regular BehaviorSubject
+
+- **Regular BehaviorSubject**: Stores the latest value permanently.
+- **Stateless BehaviorSubject**: Returns to its original initial value when all observers unsubscribe.
+
+
+Stateless subjects are particularly useful with `RefCount` for creating auto-resetting multicast observables:
 
 ```csharp
-var multicast = source.Publish();
-await using var connection = await multicast.ConnectAsync(CancellationToken.None);
+var source = Subject.Create<int>();
+var refCounted = source.Values.StatelessPublish(initialValue: 0).RefCount();
 
-// Late subscriber will miss earlier values
-await using var lateSubscriber = await multicast.SubscribeAsync(
-    async (value, ct) => Console.WriteLine($"Late: {value}")
+// First subscription gets initial value and connects
+await using (await refCounted.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"First: {value}")
+))
+{
+    // Output: First: 0
+    await source.OnNextAsync(10, CancellationToken.None);
+    // Output: First: 10
+}
+// All observers unsubscribed - disconnects and resets to initial value
+
+// New subscription reconnects and gets initial value again
+await using var sub = await refCounted.SubscribeAsync(
+    async (value, ct) => Console.WriteLine($"Second: {value}")
 );
+// Output: Second: 0
 ```
 
-**Publish with BehaviorSubject:** When using `Publish` with an initial value (creating a BehaviorSubject), late subscribers immediately receive the most recent value:
-
-```csharp
-var multicast = source.Publish(initialValue: 0);
-await using var connection = await multicast.ConnectAsync(CancellationToken.None);
-
-// Late subscriber receives the last emitted value immediately
-await using var lateSubscriber = await multicast.SubscribeAsync(
-    async (value, ct) => Console.WriteLine($"Late: {value}")
-);
-```
-
-**Connection Management:** Disposing the connection stops the source subscription. Multiple calls to `ConnectAsync` return the same connection (idempotent).
-
-**Completion and Error Propagation:** When the source completes or errors, all subscribers receive the completion or error notification.
 
 ### Disposables
 
