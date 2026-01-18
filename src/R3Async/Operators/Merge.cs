@@ -128,7 +128,7 @@ public static partial class AsyncObservable
                     parent._innerActiveCount++;
                 }
                 await parent._innerDisposables.AddAsync(this);
-                await inner.SubscribeAsync(this, parent._disposeCts.Token);
+                await inner.SubscribeAsync(this, parent._disposedCancellationToken);
             }
             protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken) => parent.ForwardOnNext(value, cancellationToken);
             protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken) => parent.ForwardOnErrorResume(error, cancellationToken);

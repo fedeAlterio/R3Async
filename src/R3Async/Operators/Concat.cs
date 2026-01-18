@@ -196,7 +196,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         {
             try
             {
-                var innerSubscription = await currentInner.SubscribeAsync(new ConcatInnerObserver(this), _disposeCts.Token);
+                var innerSubscription = await currentInner.SubscribeAsync(new ConcatInnerObserver(this), _disposedCancellationToken);
                 await _innerSubscription.SetDisposableAsync(innerSubscription);
             }
             catch (Exception e)

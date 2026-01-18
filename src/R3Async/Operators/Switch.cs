@@ -86,7 +86,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 }
 
                 var innerObserver = new SwitchInnerObserver(this);
-                var innerSubscription = await inner.SubscribeAsync(innerObserver, _disposeCts.Token);
+                var innerSubscription = await inner.SubscribeAsync(innerObserver, _disposeCancellationToken);
                 bool shouldDispose = false;
                 lock (_gate)
                 {
@@ -199,7 +199,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 => subscription.OnNextOuterAsync(value);
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposeCts.Token, cancellationToken);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposeCancellationToken, cancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
                     await subscription._observer.OnErrorResumeAsync(error, linkedCts.Token);
