@@ -205,7 +205,7 @@ public static partial class AsyncObservable
                             await _innerDisposables.AddAsync(innerObserver);
                             try
                             {
-                                await src.SubscribeAsync(innerObserver, _cts.Token);
+                                await src.SubscribeAsync(innerObserver, _disposedCancellationToken);
                             }
                             catch (TaskCanceledException)
                             {
