@@ -21,3 +21,14 @@ public sealed record BehaviorSubjectCreationOptions
         IsStateless = false
     };
 }
+
+public sealed record ReplayLatestSubjectCreationOptions
+{
+    public required PublishingOption PublishingOption { get; init; }
+    public required bool IsStateless { get; init; }
+    public static ReplayLatestSubjectCreationOptions Default { get; } = new()
+    {
+        PublishingOption = PublishingOption.Serial,
+        IsStateless = false
+    };
+}

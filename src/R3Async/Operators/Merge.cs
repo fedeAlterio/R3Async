@@ -30,15 +30,23 @@ public static partial class AsyncObservable
             return subscription;
         }
     }
-    sealed class MergeSubscription<T>(AsyncObserver<T> observer) : IAsyncDisposable
+    sealed class MergeSubscription<T> : IAsyncDisposable
     {
         int _innerActiveCount;
         bool _outerCompleted;
         readonly CancellationTokenSource _disposeCts = new();
+        readonly CancellationToken _disposedCancellationToken = new();
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
         readonly CompositeAsyncDisposable _innerDisposables = new();
         readonly AsyncGate _onSomethingGate = new();
         bool _disposed;
+        readonly AsyncObserver<T> _observer;
+
+        public MergeSubscription(AsyncObserver<T> observer)
+        {
+            _observer = observer;
+            _disposedCancellationToken = _disposeCts.Token;
+        }
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> @this, CancellationToken cancellationToken)
         {
@@ -73,20 +81,21 @@ public static partial class AsyncObservable
         async ValueTask ForwardOnNext(T value, CancellationToken cancellationToken)
         {
             if (_disposed) return;
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposedCancellationToken);
             using (await _onSomethingGate.LockAsync())
             {
-                await observer.OnNextAsync(value, linkedCts.Token);
+                if (_disposed) return;
+                await _observer.OnNextAsync(value, linkedCts.Token);
             }
         }
 
         async ValueTask ForwardOnErrorResume(Exception exception, CancellationToken cancellationToken)
         {
-            if (_disposed) return;
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposedCancellationToken);
             using (await _onSomethingGate.LockAsync())
             {
-                await observer.OnErrorResumeAsync(exception, linkedCts.Token);
+                if (_disposed) return;
+                await _observer.OnErrorResumeAsync(exception, linkedCts.Token);
             }
         }
 
@@ -99,11 +108,11 @@ public static partial class AsyncObservable
             }
 
             _disposeCts.Cancel();
-            await _outerDisposable.DisposeAsync();
             await _innerDisposables.DisposeAsync();
+            await _outerDisposable.DisposeAsync();
             if (result is not null)
             {
-                await observer.OnCompletedAsync(result.Value);
+                await _observer.OnCompletedAsync(result.Value);
             }
             _disposeCts.Dispose();
         }
@@ -161,16 +170,25 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class MergeEnumerableSubscription(AsyncObserver<T> observer, IEnumerable<AsyncObservable<T>> sources) : IAsyncDisposable
+        sealed class MergeEnumerableSubscription : IAsyncDisposable
         {
-            readonly IEnumerable<AsyncObservable<T>> _sources = sources;
+            readonly IEnumerable<AsyncObservable<T>> _sources;
             readonly CompositeAsyncDisposable _innerDisposables = new();
             readonly CancellationTokenSource _cts = new();
+            readonly CancellationToken _disposedCancellationToken;
             readonly AsyncGate _onSomethingGate = new();
             readonly TaskCompletionSource<bool> _subscriptionFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
             readonly AsyncLocal<bool> _reentrant = new();
             int _active;
             int _disposed;
+            readonly AsyncObserver<T> _observer;
+
+            public MergeEnumerableSubscription(AsyncObserver<T> observer, IEnumerable<AsyncObservable<T>> sources)
+            {
+                _observer = observer;
+                _sources = sources;
+                _disposedCancellationToken = _cts.Token;
+            }
 
             public async void StartAsync()
             {
@@ -222,19 +240,21 @@ public static partial class AsyncObservable
 
             async ValueTask OnNextAsync(T value, CancellationToken token)
             {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, token);
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, token);
                 using (await _onSomethingGate.LockAsync())
                 {
-                    await observer.OnNextAsync(value, linked.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnNextAsync(value, linked.Token);
                 }
             }
 
             async ValueTask OnErrorResumeAsync(Exception ex, CancellationToken token)
             {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, token);
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, token);
                 using (await _onSomethingGate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(ex, linked.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(ex, linked.Token);
                 }
             }
 
@@ -262,17 +282,17 @@ public static partial class AsyncObservable
                     return;
                 }
 
-                if (result is not null)
-                {
-                    await observer.OnCompletedAsync(result.Value);
-                }
-
                 _cts.Cancel();
+                await _innerDisposables.DisposeAsync();
                 if (!_reentrant.Value)
                 {
                     await _subscriptionFinished.Task;
                 }
-                await _innerDisposables.DisposeAsync();
+
+                if (result is not null)
+                {
+                    await _observer.OnCompletedAsync(result.Value);
+                }
                 _cts.Dispose();
             }
 

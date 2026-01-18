@@ -120,22 +120,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
@@ -313,22 +313,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2, v3);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
@@ -546,22 +546,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2, v3, v4);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
@@ -819,22 +819,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2, v3, v4, v5);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
@@ -1132,22 +1132,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2, v3, v4, v5, v6);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
@@ -1485,22 +1485,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, T7 v7, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2, v3, v4, v5, v6, v7);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
@@ -1878,22 +1878,22 @@ public static partial class AsyncObservable
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, T7 v7, T8 v8, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(v1, v2, v3, v4, v5, v6, v7, v8);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }

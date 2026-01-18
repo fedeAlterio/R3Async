@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -47,6 +48,7 @@ public sealed class SingleAssignmentAsyncDisposable : IAsyncDisposable
 
     public ValueTask SetDisposableAsync(IAsyncDisposable? value) => SetDisposableAsync(ref _current, value);
 
+    [DebuggerStepThrough]
     internal static ValueTask DisposeAsync(ref IAsyncDisposable? field)
     {
         var current = Interlocked.Exchange(ref field, DisposedSentinel.Instance);

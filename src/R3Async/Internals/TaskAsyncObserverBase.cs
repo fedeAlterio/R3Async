@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,6 +28,7 @@ internal abstract class TaskAsyncObserverBase<T, TTaskValue>(CancellationToken c
         }
     }
 
+    [DebuggerStepThrough]
     protected async ValueTask TrySetCompleted(TTaskValue value)
     {
         try

@@ -15,6 +15,11 @@ public static partial class AsyncObservable
         IsStateless = true
     };
 
+    static readonly ReplayLatestSubjectCreationOptions _statelessReplayLatestPublishOptions = ReplayLatestSubjectCreationOptions.Default with
+    {
+        IsStateless = true
+    };
+
     extension<T>(AsyncObservable<T> source)
     {
         public ConnectableAsyncObservable<T> Multicast(ISubject<T> subject) => new MulticastAsyncObservable<T>(source, subject);
@@ -26,5 +31,9 @@ public static partial class AsyncObservable
         public ConnectableAsyncObservable<T> Publish(T initialValue) => source.Multicast(Subject.CreateBehavior(initialValue));
         public ConnectableAsyncObservable<T> Publish(T initialValue, BehaviorSubjectCreationOptions options) => source.Multicast(Subject.CreateBehavior(initialValue, options));
         public ConnectableAsyncObservable<T> StatelessPublish(T initialValue) => source.Multicast(Subject.CreateBehavior(initialValue, _statelessBehaviorPublishOptions));
+
+        public ConnectableAsyncObservable<T> PublishReplayLatest() => source.Multicast(Subject.CreateReplayLatest<T>());
+        public ConnectableAsyncObservable<T> PublishReplayLatest(ReplayLatestSubjectCreationOptions options) => source.Multicast(Subject.CreateReplayLatest<T>(options));
+        public ConnectableAsyncObservable<T> StatelessPublishReplayLatest() => source.Multicast(Subject.CreateReplayLatest<T>(_statelessReplayLatestPublishOptions));
     }
 }

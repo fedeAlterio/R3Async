@@ -87,22 +87,22 @@ public static partial class AsyncObservable
 <# } #>
 
             async ValueTask OnNextCombined(<#= OnNextCombinedParams(n) #>, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {               
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     var v = selector(<#= SelectorArgs(n) #>);
                     await observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
+            {                
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
                 using (await _gate.LockAsync())
                 {
+                    if (_disposed == 1) return;
                     await observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
