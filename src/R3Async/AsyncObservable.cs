@@ -197,18 +197,19 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
 
         _disposeCts.Dispose();
+    
         try
         {
-            await SingleAssignmentAsyncDisposable.DisposeAsync(ref _sourceSubscription);
+            await DisposeAsyncCore();
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             UnhandledExceptionHandler.OnUnhandledException(e);
         }
 
         try
         {
-            await DisposeAsyncCore();
+            await SingleAssignmentAsyncDisposable.DisposeAsync(ref _sourceSubscription);
         }
         catch (Exception e)
         {
