@@ -60,7 +60,7 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
                                                                      result => result.IsFailure 
                                                                          ? CompleteAsync(result)
                                                                          : SubscribeNextAsync(),
-                                                                     _cts.Token);
+                                                                     _disposedCancellationToken);
 
                     await _innerDisposable.SetDisposableAsync(subscription);
                 }
