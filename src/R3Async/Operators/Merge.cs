@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using R3Async.Internals;
 
@@ -8,15 +9,16 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
-    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this) => new MergeObservableObservables<T>(@this);
+    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this) => new MergeObservableObservables<T>(@this, int.MaxValue);
+    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this, int maxConcurrent) => new MergeObservableObservables<T>(@this, maxConcurrent);
     public static AsyncObservable<T> Merge<T>(this IEnumerable<AsyncObservable<T>> @this) => new MergeEnumerableObservable<T>(@this);
     public static AsyncObservable<T> Merge<T>(this AsyncObservable<T> @this, AsyncObservable<T> other) => new MergeEnumerableObservable<T>([@this, other]);
 
-    sealed class MergeObservableObservables<T>(AsyncObservable<AsyncObservable<T>> sources) : AsyncObservable<T>
+    sealed class MergeObservableObservables<T>(AsyncObservable<AsyncObservable<T>> sources, int maxConcurrent) : AsyncObservable<T>
     {
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
-            var subscription = new MergeSubscription<T>(observer);
+            var subscription = new MergeSubscription<T>(observer, maxConcurrent);
             try
             {
                 await subscription.SubscribeAsync(sources, cancellationToken);
@@ -35,21 +37,25 @@ public static partial class AsyncObservable
         int _innerActiveCount;
         bool _outerCompleted;
         readonly CancellationTokenSource _disposeCts = new();
-        readonly CancellationToken _disposedCancellationToken = new();
+        readonly CancellationToken _disposedCancellationToken;
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
         readonly CompositeAsyncDisposable _innerDisposables = new();
         readonly AsyncGate _onSomethingGate = new();
+        readonly SemaphoreSlim _ss;
         bool _disposed;
         readonly AsyncObserver<T> _observer;
 
-        public MergeSubscription(AsyncObserver<T> observer)
+        public MergeSubscription(AsyncObserver<T> observer, int maxConcurrent)
         {
             _observer = observer;
             _disposedCancellationToken = _disposeCts.Token;
+            _ss = new(maxConcurrent, maxConcurrent);
         }
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> @this, CancellationToken cancellationToken)
         {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposedCancellationToken);
+
             var outerSubscription = await @this.SubscribeAsync((x, _) => SubscribeInnerAsync(x), ForwardOnErrorResume, result =>
             {
                 bool shouldComplete;
@@ -60,13 +66,14 @@ public static partial class AsyncObservable
                 }
 
                 return shouldComplete ? CompleteAsync(result) : default;
-            }, cancellationToken);
+            }, linkedCts.Token);
 
             await _outerDisposable.SetDisposableAsync(outerSubscription);
         }
 
         async ValueTask SubscribeInnerAsync(AsyncObservable<T> inner)
         {
+            await _ss.WaitAsync(_disposedCancellationToken);
             try
             {
                 var innerObserver = new InnerAsyncObserver(this);
@@ -74,6 +81,7 @@ public static partial class AsyncObservable
             }
             catch (Exception e)
             {
+                _ss.Release();
                 await CompleteAsync(Result.Failure(e));
             }
         }
@@ -146,6 +154,7 @@ public static partial class AsyncObservable
 
             protected override async ValueTask DisposeAsyncCore()
             {
+                parent._ss.Release();
                 await parent._innerDisposables.Remove(this);
             }
         }

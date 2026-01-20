@@ -35,14 +35,11 @@ internal abstract class CancelableTaskSubscription<T>(AsyncObserver<T> observer)
         {
             await RunAsyncCore(observer, cancellationToken);
         }
-        catch (OperationCanceledException)
-        {
-        }
         catch (Exception e)
         {
             try
             {
-                await observer.OnCompletedAsync(Result.Failure(e));
+                await observer.OnCompletedAsync(e is OperationCanceledException ? Result.Success : Result.Failure(e));
             }
             catch (Exception exception)
             {

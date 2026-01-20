@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,10 +15,7 @@ public static partial class AsyncObservable
             try
             {
                 var observable = observableFactory(resource);
-                return observable.OnDispose(async () =>
-                {
-                    await resource.DisposeAsync();
-                });
+                return observable.OnDispose(resource.DisposeAsync);
             }
             catch
             {
