@@ -15,6 +15,7 @@ namespace R3Async.Internals
         private readonly SemaphoreSlim _semaphore = new(1, 1);
         private readonly AsyncLocal<int> _recursionCount = new();
 
+        [DebuggerStepThrough]
         public ValueTask<Releaser> LockAsync()
         {
             var shouldAcquire = false;

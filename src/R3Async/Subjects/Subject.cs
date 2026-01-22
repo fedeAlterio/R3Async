@@ -1,4 +1,5 @@
 ﻿using System;
+using R3Async.Internals;
 using R3Async.Subjects.Internals;
 
 namespace R3Async.Subjects;
@@ -23,10 +24,23 @@ public static class Subject
     {
         return (options.PublishingOption, options.IsStateless) switch
         {
-            (PublishingOption.Serial, false) => new SerialBehaviorSubject<T>(startValue),
-            (PublishingOption.Concurrent, false) => new ConcurrentBehaviorSubject<T>(startValue),
-            (PublishingOption.Serial, true) => new SerialStatelessBehaviorSubject<T>(startValue),
-            (PublishingOption.Concurrent, true) => new ConcurrentStatelessBehaviorSubject<T>(startValue),
+            (PublishingOption.Serial, false) => new SerialReplayLatestSubject<T>(new(startValue)),
+            (PublishingOption.Concurrent, false) => new ConcurrentReplayLatestSubject<T>(new(startValue)),
+            (PublishingOption.Serial, true) => new SerialStatelessReplayLastSubject<T>(new(startValue)),
+            (PublishingOption.Concurrent, true) => new ConcurrentStatelessReplayLatestSubject<T>(new(startValue)),
+            _ => throw new ArgumentOutOfRangeException()
+        };
+    }
+
+    public static ISubject<T> CreateReplayLatest<T>() => CreateReplayLatest<T>(ReplayLatestSubjectCreationOptions.Default);
+    public static ISubject<T> CreateReplayLatest<T>(ReplayLatestSubjectCreationOptions options)
+    {
+        return (options.PublishingOption, options.IsStateless) switch
+        {
+            (PublishingOption.Serial, false) => new SerialReplayLatestSubject<T>(Optional<T>.Empty),
+            (PublishingOption.Concurrent, false) => new ConcurrentReplayLatestSubject<T>(Optional<T>.Empty),
+            (PublishingOption.Serial, true) => new SerialStatelessReplayLastSubject<T>(Optional<T>.Empty),
+            (PublishingOption.Concurrent, true) => new ConcurrentStatelessReplayLatestSubject<T>(Optional<T>.Empty),
             _ => throw new ArgumentOutOfRangeException()
         };
     }

@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using R3Async.Internals;
 
 namespace R3Async.Subjects.Internals;
 
-internal sealed class ConcurrentBehaviorSubject<T>(T startValue) : BaseBehaviorSubject<T>(startValue)
+internal sealed class ConcurrentReplayLatestSubject<T>(Optional<T> startValue) : BaseReplayLatestSubject<T>(startValue)
 {
     protected override ValueTask OnNextAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, T value, CancellationToken cancellationToken)
     {

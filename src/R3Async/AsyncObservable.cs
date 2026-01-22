@@ -62,6 +62,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     }
     protected abstract ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken);
 
+    [DebuggerStepThrough]
     bool TryEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
     {
         lock (_reentrantCallsCount)
@@ -88,6 +89,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
     }
 
+    [DebuggerStepThrough]
     bool ExitOnSomethingCall()
     {
         lock (_reentrantCallsCount)
@@ -146,6 +148,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
     }
 
+    [DebuggerStepThrough]
     public async ValueTask OnCompletedAsync(Result result)
     {
         if (!TryEnterOnSomethingCall(CancellationToken.None, out var linkedCts))
@@ -172,6 +175,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     protected abstract ValueTask OnCompletedAsyncCore(Result result);
 
 
+    [DebuggerStepThrough]
     public async ValueTask DisposeAsync()
     {
         Task? allOnSomethingCallsCompleted = null;
@@ -193,10 +197,27 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
 
         _disposeCts.Dispose();
-        await SingleAssignmentAsyncDisposable.DisposeAsync(ref _sourceSubscription);
-        await DisposeAsyncCore();
+    
+        try
+        {
+            await DisposeAsyncCore();
+        }
+        catch (Exception e)
+        {
+            UnhandledExceptionHandler.OnUnhandledException(e);
+        }
+
+        try
+        {
+            await SingleAssignmentAsyncDisposable.DisposeAsync(ref _sourceSubscription);
+        }
+        catch (Exception e)
+        {
+            UnhandledExceptionHandler.OnUnhandledException(e);
+        }
     }
 
+    [DebuggerStepThrough]
     protected virtual ValueTask DisposeAsyncCore() => default;
 }
 

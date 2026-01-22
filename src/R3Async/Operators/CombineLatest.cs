@@ -19,11 +19,22 @@ public static partial class AsyncObservable
         return new CombineLatest2AsyncObservable<T1, T2, TResult>(src1, src2, selector);
     }
 
-    sealed class CombineLatest2AsyncObservable<T1, T2, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, Func<T1, T2, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest2AsyncObservable<T1, T2, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly Func<T1, T2, TResult> _selector;
+
+        public CombineLatest2AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, Func<T1, T2, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -36,10 +47,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, Func<T1, T2, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
 
@@ -49,11 +61,24 @@ public static partial class AsyncObservable
             bool _done1;
             bool _done2;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly Func<T1, T2, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, Func<T1, T2, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -84,7 +109,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -115,28 +140,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -157,7 +182,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();
@@ -177,11 +202,24 @@ public static partial class AsyncObservable
         return new CombineLatest3AsyncObservable<T1, T2, T3, TResult>(src1, src2, src3, selector);
     }
 
-    sealed class CombineLatest3AsyncObservable<T1, T2, T3, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, Func<T1, T2, T3, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest3AsyncObservable<T1, T2, T3, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly AsyncObservable<T3> _src3;
+        readonly Func<T1, T2, T3, TResult> _selector;
+
+        public CombineLatest3AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, Func<T1, T2, T3, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _src3 = src3;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, src3, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _src3, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -194,10 +232,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, Func<T1, T2, T3, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
             IAsyncDisposable? _d3;
@@ -210,12 +249,27 @@ public static partial class AsyncObservable
             bool _done2;
             bool _done3;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly AsyncObservable<T3> _src3;
+            readonly Func<T1, T2, T3, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, Func<T1, T2, T3, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _src3 = src3;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
-                _d3 = await src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d3 = await _src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -246,7 +300,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -277,7 +331,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
@@ -308,28 +362,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2, v3);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2, v3);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -354,7 +408,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();
@@ -375,11 +429,26 @@ public static partial class AsyncObservable
         return new CombineLatest4AsyncObservable<T1, T2, T3, T4, TResult>(src1, src2, src3, src4, selector);
     }
 
-    sealed class CombineLatest4AsyncObservable<T1, T2, T3, T4, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, Func<T1, T2, T3, T4, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest4AsyncObservable<T1, T2, T3, T4, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly AsyncObservable<T3> _src3;
+        readonly AsyncObservable<T4> _src4;
+        readonly Func<T1, T2, T3, T4, TResult> _selector;
+
+        public CombineLatest4AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, Func<T1, T2, T3, T4, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _src3 = src3;
+            _src4 = src4;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, src3, src4, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _src3, _src4, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -392,10 +461,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, Func<T1, T2, T3, T4, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
             IAsyncDisposable? _d3;
@@ -411,13 +481,30 @@ public static partial class AsyncObservable
             bool _done3;
             bool _done4;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly AsyncObservable<T3> _src3;
+            readonly AsyncObservable<T4> _src4;
+            readonly Func<T1, T2, T3, T4, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, Func<T1, T2, T3, T4, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _src3 = src3;
+                _src4 = src4;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
-                _d3 = await src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
-                _d4 = await src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d3 = await _src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
+                _d4 = await _src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -448,7 +535,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -479,7 +566,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
@@ -510,7 +597,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
@@ -541,28 +628,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2, v3, v4);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2, v3, v4);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -591,7 +678,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();
@@ -613,11 +700,28 @@ public static partial class AsyncObservable
         return new CombineLatest5AsyncObservable<T1, T2, T3, T4, T5, TResult>(src1, src2, src3, src4, src5, selector);
     }
 
-    sealed class CombineLatest5AsyncObservable<T1, T2, T3, T4, T5, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, Func<T1, T2, T3, T4, T5, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest5AsyncObservable<T1, T2, T3, T4, T5, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly AsyncObservable<T3> _src3;
+        readonly AsyncObservable<T4> _src4;
+        readonly AsyncObservable<T5> _src5;
+        readonly Func<T1, T2, T3, T4, T5, TResult> _selector;
+
+        public CombineLatest5AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, Func<T1, T2, T3, T4, T5, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _src3 = src3;
+            _src4 = src4;
+            _src5 = src5;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, src3, src4, src5, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _src3, _src4, _src5, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -630,10 +734,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, Func<T1, T2, T3, T4, T5, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
             IAsyncDisposable? _d3;
@@ -652,14 +757,33 @@ public static partial class AsyncObservable
             bool _done4;
             bool _done5;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly AsyncObservable<T3> _src3;
+            readonly AsyncObservable<T4> _src4;
+            readonly AsyncObservable<T5> _src5;
+            readonly Func<T1, T2, T3, T4, T5, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, Func<T1, T2, T3, T4, T5, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _src3 = src3;
+                _src4 = src4;
+                _src5 = src5;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
-                _d3 = await src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
-                _d4 = await src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
-                _d5 = await src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d3 = await _src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
+                _d4 = await _src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
+                _d5 = await _src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -690,7 +814,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -721,7 +845,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
@@ -752,7 +876,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
@@ -783,7 +907,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
@@ -814,28 +938,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2, v3, v4, v5);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2, v3, v4, v5);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -868,7 +992,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();
@@ -891,11 +1015,30 @@ public static partial class AsyncObservable
         return new CombineLatest6AsyncObservable<T1, T2, T3, T4, T5, T6, TResult>(src1, src2, src3, src4, src5, src6, selector);
     }
 
-    sealed class CombineLatest6AsyncObservable<T1, T2, T3, T4, T5, T6, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, Func<T1, T2, T3, T4, T5, T6, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest6AsyncObservable<T1, T2, T3, T4, T5, T6, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly AsyncObservable<T3> _src3;
+        readonly AsyncObservable<T4> _src4;
+        readonly AsyncObservable<T5> _src5;
+        readonly AsyncObservable<T6> _src6;
+        readonly Func<T1, T2, T3, T4, T5, T6, TResult> _selector;
+
+        public CombineLatest6AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, Func<T1, T2, T3, T4, T5, T6, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _src3 = src3;
+            _src4 = src4;
+            _src5 = src5;
+            _src6 = src6;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, src3, src4, src5, src6, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _src3, _src4, _src5, _src6, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -908,10 +1051,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, Func<T1, T2, T3, T4, T5, T6, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
             IAsyncDisposable? _d3;
@@ -933,15 +1077,36 @@ public static partial class AsyncObservable
             bool _done5;
             bool _done6;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly AsyncObservable<T3> _src3;
+            readonly AsyncObservable<T4> _src4;
+            readonly AsyncObservable<T5> _src5;
+            readonly AsyncObservable<T6> _src6;
+            readonly Func<T1, T2, T3, T4, T5, T6, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, Func<T1, T2, T3, T4, T5, T6, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _src3 = src3;
+                _src4 = src4;
+                _src5 = src5;
+                _src6 = src6;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
-                _d3 = await src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
-                _d4 = await src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
-                _d5 = await src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
-                _d6 = await src6.SubscribeAsync(OnNext_6, OnErrorResume, OnCompleted_6, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d3 = await _src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
+                _d4 = await _src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
+                _d5 = await _src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
+                _d6 = await _src6.SubscribeAsync(OnNext_6, OnErrorResume, OnCompleted_6, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -972,7 +1137,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -1003,7 +1168,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
@@ -1034,7 +1199,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
@@ -1065,7 +1230,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
@@ -1096,7 +1261,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_6(T6 value, CancellationToken cancellationToken)
@@ -1127,28 +1292,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2, v3, v4, v5, v6);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2, v3, v4, v5, v6);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -1185,7 +1350,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();
@@ -1209,11 +1374,32 @@ public static partial class AsyncObservable
         return new CombineLatest7AsyncObservable<T1, T2, T3, T4, T5, T6, T7, TResult>(src1, src2, src3, src4, src5, src6, src7, selector);
     }
 
-    sealed class CombineLatest7AsyncObservable<T1, T2, T3, T4, T5, T6, T7, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest7AsyncObservable<T1, T2, T3, T4, T5, T6, T7, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly AsyncObservable<T3> _src3;
+        readonly AsyncObservable<T4> _src4;
+        readonly AsyncObservable<T5> _src5;
+        readonly AsyncObservable<T6> _src6;
+        readonly AsyncObservable<T7> _src7;
+        readonly Func<T1, T2, T3, T4, T5, T6, T7, TResult> _selector;
+
+        public CombineLatest7AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _src3 = src3;
+            _src4 = src4;
+            _src5 = src5;
+            _src6 = src6;
+            _src7 = src7;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, src3, src4, src5, src6, src7, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _src3, _src4, _src5, _src6, _src7, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -1226,10 +1412,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
             IAsyncDisposable? _d3;
@@ -1254,16 +1441,39 @@ public static partial class AsyncObservable
             bool _done6;
             bool _done7;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly AsyncObservable<T3> _src3;
+            readonly AsyncObservable<T4> _src4;
+            readonly AsyncObservable<T5> _src5;
+            readonly AsyncObservable<T6> _src6;
+            readonly AsyncObservable<T7> _src7;
+            readonly Func<T1, T2, T3, T4, T5, T6, T7, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _src3 = src3;
+                _src4 = src4;
+                _src5 = src5;
+                _src6 = src6;
+                _src7 = src7;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
-                _d3 = await src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
-                _d4 = await src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
-                _d5 = await src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
-                _d6 = await src6.SubscribeAsync(OnNext_6, OnErrorResume, OnCompleted_6, cancellationToken);
-                _d7 = await src7.SubscribeAsync(OnNext_7, OnErrorResume, OnCompleted_7, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d3 = await _src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
+                _d4 = await _src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
+                _d5 = await _src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
+                _d6 = await _src6.SubscribeAsync(OnNext_6, OnErrorResume, OnCompleted_6, cancellationToken);
+                _d7 = await _src7.SubscribeAsync(OnNext_7, OnErrorResume, OnCompleted_7, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -1294,7 +1504,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -1325,7 +1535,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
@@ -1356,7 +1566,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
@@ -1387,7 +1597,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
@@ -1418,7 +1628,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_6(T6 value, CancellationToken cancellationToken)
@@ -1449,7 +1659,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_7(T7 value, CancellationToken cancellationToken)
@@ -1480,28 +1690,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, T7 v7, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2, v3, v4, v5, v6, v7);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2, v3, v4, v5, v6, v7);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -1542,7 +1752,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();
@@ -1567,11 +1777,34 @@ public static partial class AsyncObservable
         return new CombineLatest8AsyncObservable<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(src1, src2, src3, src4, src5, src6, src7, src8, selector);
     }
 
-    sealed class CombineLatest8AsyncObservable<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, AsyncObservable<T8> src8, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector) : AsyncObservable<TResult>
+    sealed class CombineLatest8AsyncObservable<T1, T2, T3, T4, T5, T6, T7, T8, TResult> : AsyncObservable<TResult>
     {
+        readonly AsyncObservable<T1> _src1;
+        readonly AsyncObservable<T2> _src2;
+        readonly AsyncObservable<T3> _src3;
+        readonly AsyncObservable<T4> _src4;
+        readonly AsyncObservable<T5> _src5;
+        readonly AsyncObservable<T6> _src6;
+        readonly AsyncObservable<T7> _src7;
+        readonly AsyncObservable<T8> _src8;
+        readonly Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> _selector;
+
+        public CombineLatest8AsyncObservable(AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, AsyncObservable<T8> src8, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector)
+        {
+            _src1 = src1;
+            _src2 = src2;
+            _src3 = src3;
+            _src4 = src4;
+            _src5 = src5;
+            _src6 = src6;
+            _src7 = src7;
+            _src8 = src8;
+            _selector = selector;
+        }
+
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TResult> observer, CancellationToken cancellationToken)
         {
-            var subscription = new CombineLatestSubscription(observer, src1, src2, src3, src4, src5, src6, src7, src8, selector);
+            var subscription = new CombineLatestSubscription(observer, _src1, _src2, _src3, _src4, _src5, _src6, _src7, _src8, _selector);
             try
             {
                 await subscription.SubscribeAsync(cancellationToken);
@@ -1584,10 +1817,11 @@ public static partial class AsyncObservable
             return subscription;
         }
 
-        sealed class CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, AsyncObservable<T8> src8, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector) : IAsyncDisposable
+        sealed class CombineLatestSubscription : IAsyncDisposable
         {
             readonly AsyncGate _gate = new();
             readonly CancellationTokenSource _disposeCts = new();
+            readonly CancellationToken _disposeCancellationToken;
             IAsyncDisposable? _d1;
             IAsyncDisposable? _d2;
             IAsyncDisposable? _d3;
@@ -1615,17 +1849,42 @@ public static partial class AsyncObservable
             bool _done7;
             bool _done8;
             int _disposed;
+            readonly AsyncObserver<TResult> _observer;
+            readonly AsyncObservable<T1> _src1;
+            readonly AsyncObservable<T2> _src2;
+            readonly AsyncObservable<T3> _src3;
+            readonly AsyncObservable<T4> _src4;
+            readonly AsyncObservable<T5> _src5;
+            readonly AsyncObservable<T6> _src6;
+            readonly AsyncObservable<T7> _src7;
+            readonly AsyncObservable<T8> _src8;
+            readonly Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> _selector;
+
+            public CombineLatestSubscription(AsyncObserver<TResult> observer, AsyncObservable<T1> src1, AsyncObservable<T2> src2, AsyncObservable<T3> src3, AsyncObservable<T4> src4, AsyncObservable<T5> src5, AsyncObservable<T6> src6, AsyncObservable<T7> src7, AsyncObservable<T8> src8, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector)
+            {
+                _observer = observer;
+                _src1 = src1;
+                _src2 = src2;
+                _src3 = src3;
+                _src4 = src4;
+                _src5 = src5;
+                _src6 = src6;
+                _src7 = src7;
+                _src8 = src8;
+                _selector = selector;
+                _disposeCancellationToken = _disposeCts.Token;
+            }
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _d1 = await src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
-                _d2 = await src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
-                _d3 = await src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
-                _d4 = await src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
-                _d5 = await src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
-                _d6 = await src6.SubscribeAsync(OnNext_6, OnErrorResume, OnCompleted_6, cancellationToken);
-                _d7 = await src7.SubscribeAsync(OnNext_7, OnErrorResume, OnCompleted_7, cancellationToken);
-                _d8 = await src8.SubscribeAsync(OnNext_8, OnErrorResume, OnCompleted_8, cancellationToken);
+                _d1 = await _src1.SubscribeAsync(OnNext_1, OnErrorResume, OnCompleted_1, cancellationToken);
+                _d2 = await _src2.SubscribeAsync(OnNext_2, OnErrorResume, OnCompleted_2, cancellationToken);
+                _d3 = await _src3.SubscribeAsync(OnNext_3, OnErrorResume, OnCompleted_3, cancellationToken);
+                _d4 = await _src4.SubscribeAsync(OnNext_4, OnErrorResume, OnCompleted_4, cancellationToken);
+                _d5 = await _src5.SubscribeAsync(OnNext_5, OnErrorResume, OnCompleted_5, cancellationToken);
+                _d6 = await _src6.SubscribeAsync(OnNext_6, OnErrorResume, OnCompleted_6, cancellationToken);
+                _d7 = await _src7.SubscribeAsync(OnNext_7, OnErrorResume, OnCompleted_7, cancellationToken);
+                _d8 = await _src8.SubscribeAsync(OnNext_8, OnErrorResume, OnCompleted_8, cancellationToken);
             }
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
@@ -1656,7 +1915,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
@@ -1687,7 +1946,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
@@ -1718,7 +1977,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
@@ -1749,7 +2008,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
@@ -1780,7 +2039,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_6(T6 value, CancellationToken cancellationToken)
@@ -1811,7 +2070,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_7(T7 value, CancellationToken cancellationToken)
@@ -1842,7 +2101,7 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
             ValueTask OnNext_8(T8 value, CancellationToken cancellationToken)
@@ -1873,28 +2132,28 @@ public static partial class AsyncObservable
                     shouldComplete = _done1 && _done2 && _done3 && _done4 && _done5 && _done6 && _done7 && _done8;
                 }
 
-                return shouldComplete ? observer.OnCompletedAsync(result) : default;
+                return shouldComplete ? _observer.OnCompletedAsync(result) : default;
             }
 
 
             async ValueTask OnNextCombined(T1 v1, T2 v2, T3 v3, T4 v4, T5 v5, T6 v6, T7 v7, T8 v8, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {               
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    var v = selector(v1, v2, v3, v4, v5, v6, v7, v8);
-                    await observer.OnNextAsync(v, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    var v = _selector(v1, v2, v3, v4, v5, v6, v7, v8);
+                    await _observer.OnNextAsync(v, linkedCts.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {
-                if (_disposed == 1) return;
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            {                
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    if (_disposed == 1) return;
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
                 }
             }
 
@@ -1939,7 +2198,7 @@ public static partial class AsyncObservable
 
                 if (result is not null)
                 {
-                    await observer.OnCompletedAsync(result.Value);
+                    await _observer.OnCompletedAsync(result.Value);
                 }
 
                 _disposeCts.Dispose();

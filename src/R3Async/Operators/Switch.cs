@@ -31,17 +31,24 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         return subscription;
     }
 
-    sealed class SwitchSubscription(AsyncObserver<T> observer) : IAsyncDisposable
+    sealed class SwitchSubscription : IAsyncDisposable
     {
-        readonly AsyncObserver<T> _observer = observer;
+        readonly AsyncObserver<T> _observer;
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
         readonly CancellationTokenSource _disposeCts = new();
+        readonly CancellationToken _disposeCancellationToken;
         IAsyncDisposable? _currentInnerSubscription;
 
         readonly object _gate = new();
         readonly AsyncGate _observerOnSomethingGate = new();
         bool _outerCompleted;
         bool _disposed;
+
+        public SwitchSubscription(AsyncObserver<T> observer)
+        {
+            _observer = observer;
+            _disposeCancellationToken = _disposeCts.Token;
+        }
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> source, CancellationToken subscriptionToken)
         {
@@ -79,7 +86,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 }
 
                 var innerObserver = new SwitchInnerObserver(this);
-                var innerSubscription = await inner.SubscribeAsync(innerObserver, _disposeCts.Token);
+                var innerSubscription = await inner.SubscribeAsync(innerObserver, _disposeCancellationToken);
                 bool shouldDispose = false;
                 lock (_gate)
                 {
@@ -142,7 +149,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         public async ValueTask OnNextInnerAsync(T value, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, cancellationToken);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
             using (await _observerOnSomethingGate.LockAsync())
             {
                 await _observer.OnNextAsync(value, linkedCts.Token);
@@ -151,7 +158,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         public async ValueTask OnErrorInnerAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, cancellationToken);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
             using (await _observerOnSomethingGate.LockAsync())
             {
                 await _observer.OnErrorResumeAsync(error, linkedCts.Token);
@@ -160,26 +167,21 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         async ValueTask CompleteAsync(Result? result)
         {
+            IAsyncDisposable? toDispose;
             lock (_gate)
             {
                 if (_disposed) return;
                 _disposed = true;
-            }
-
-            _disposeCts.Cancel();
-            await _outerDisposable.DisposeAsync();
-
-            IAsyncDisposable? toDispose;
-            lock (_gate)
-            {
                 toDispose = _currentInnerSubscription;
                 _currentInnerSubscription = null;
             }
 
+            _disposeCts.Cancel();
             if (toDispose is not null)
             {
                 await toDispose.DisposeAsync();
             }
+            await _outerDisposable.DisposeAsync();
 
             if (result is not null)
             {
@@ -197,7 +199,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 => subscription.OnNextOuterAsync(value);
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposeCts.Token, cancellationToken);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposeCancellationToken, cancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
                     await subscription._observer.OnErrorResumeAsync(error, linkedCts.Token);

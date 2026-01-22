@@ -39,7 +39,7 @@ public class CreateTest
             async (ex, token) => { },
             async result => tcs.TrySetResult(result.IsSuccess),
             CancellationToken.None);
-        
+
         var completed = await tcs.Task;
         completed.ShouldBeTrue();
         results.ShouldBe(new[] { 1 });
@@ -67,7 +67,7 @@ public class CreateTest
                     tcs.TrySetResult(result.Exception);
             },
             CancellationToken.None);
-        
+
         var exception = await tcs.Task;
         exception.ShouldBe(expectedException);
         results.ShouldBe(new[] { 1 });
@@ -92,7 +92,7 @@ public class CreateTest
             async (ex, token) => tcs.TrySetResult(ex),
             null,
             CancellationToken.None);
-        
+
         var exception = await tcs.Task;
         exception.ShouldBe(expectedException);
         await Task.Delay(100);
@@ -117,7 +117,7 @@ public class CreateTest
         var subscription = await observable.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
         await tcs.Task;
         await subscription.DisposeAsync();
-        
+
         disposed.ShouldBeTrue();
     }
 
@@ -133,7 +133,7 @@ public class CreateTest
 
         var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var subscription = await observable.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), cts.Token);
-        
+
         await cts.CancelAsync();
         var result = await tcs.Task;
         result.ShouldBe(1);
@@ -161,7 +161,7 @@ public class CreateTest
             async (ex, token) => { },
             async result => tcs.TrySetResult(true),
             CancellationToken.None);
-        
+
         await tcs.Task;
         results.ShouldBeEmpty();
     }
@@ -178,7 +178,7 @@ public class CreateTest
 
         var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var subscription = await observable.SubscribeAsync(async (x, token) => tcs.TrySetResult(x), CancellationToken.None);
-        
+
         var result = await tcs.Task;
         result.ShouldBe(42);
     }
@@ -206,7 +206,7 @@ public class CreateTest
             async (ex, token) => tcs.TrySetResult(ex),
             null,
             CancellationToken.None);
-        
+
         var exception = await tcs.Task;
         exception.ShouldBe(expectedException);
         results.ShouldBe(new[] { 1, 2 });
@@ -245,7 +245,7 @@ public class CreateTest
                     await subscription!.DisposeAsync();
             },
             CancellationToken.None);
-        
+
         tcs.TrySetResult();
         await completedTcs.Task;
         results.ShouldBe(new[] { 1 });
@@ -283,7 +283,7 @@ public class CreateTest
             async (ex, token) => await subscription!.DisposeAsync(),
             null,
             CancellationToken.None);
-        
+
         tcs.TrySetResult();
         await completedTcs.Task;
         results.ShouldBe(new[] { 1 });
@@ -325,7 +325,7 @@ public class CreateTest
                 disposed = true;
             },
             CancellationToken.None);
-        
+
         tcs.TrySetResult();
         await completedTcs.Task;
         results.ShouldBe(new[] { 1 });
@@ -339,7 +339,7 @@ public class CreateTest
         var onNextStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var onNextCanComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var onNextCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        
+
         var onErrorResumeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var onCompletedStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -354,13 +354,13 @@ public class CreateTest
             {
                 await emitNext.Task;
                 await observer.OnNextAsync(1, token);
-                
+
                 await emitError.Task;
                 await observer.OnErrorResumeAsync(new InvalidOperationException("test"), token);
-                
+
                 await emitComplete.Task;
                 await observer.OnCompletedAsync(Result.Success);
-                
+
                 await emitNext2.Task;
                 await observer.OnNextAsync(2, token);
             });
@@ -387,25 +387,25 @@ public class CreateTest
         emitNext.TrySetResult();
         await onNextStarted.Task;
         onNextCompleted.Task.IsCompleted.ShouldBeFalse();
-        
+
         var disposeTask = subscription.DisposeAsync().AsTask();
         await Task.Yield();
-        
+
         disposeTask.IsCompleted.ShouldBeFalse();
-        
+
         onNextCanComplete.TrySetResult();
         await onNextCompleted.Task;
-        
+
         await disposeTask;
-        
+
         emitError.TrySetResult();
         await Task.Yield();
         onErrorResumeStarted.Task.IsCompleted.ShouldBeFalse();
-        
+
         emitComplete.TrySetResult();
         await Task.Yield();
         onCompletedStarted.Task.IsCompleted.ShouldBeFalse();
-        
+
         emitNext2.TrySetResult();
         await Task.Yield();
         onNextStarted.Task.IsCompleted.ShouldBeTrue();
@@ -436,10 +436,10 @@ public class CreateTest
             async (x, token) =>
             {
                 onNextStarted.TrySetResult();
-                
+
                 await subscription!.DisposeAsync();
                 disposeCompleted.TrySetResult();
-                
+
                 await onNextCanComplete.Task;
                 onNextCompleted.TrySetResult();
             },
@@ -447,11 +447,11 @@ public class CreateTest
 
         emitNext.TrySetResult();
         await onNextStarted.Task;
-        
+
         await disposeCompleted.Task;
-        
+
         onNextCompleted.Task.IsCompleted.ShouldBeFalse();
-        
+
         onNextCanComplete.TrySetResult();
         await onNextCompleted.Task;
     }
@@ -491,10 +491,10 @@ public class CreateTest
 
         emitNext.TrySetResult();
         await onNextStarted.Task;
-        
+
         await cts.CancelAsync();
         await onNextTokenCancelled.Task;
-        
+
         await subscription.DisposeAsync();
     }
 
@@ -532,10 +532,10 @@ public class CreateTest
 
         emitNext.TrySetResult();
         await onNextStarted.Task;
-        
+
         var disposeTask = subscription.DisposeAsync().AsTask();
         await onNextTokenCancelled.Task;
-        
+
         await disposeTask;
     }
 
@@ -576,10 +576,10 @@ public class CreateTest
 
         emitError.TrySetResult();
         await onErrorResumeStarted.Task;
-        
+
         await cts.CancelAsync();
         await onErrorResumeTokenCancelled.Task;
-        
+
         await subscription.DisposeAsync();
     }
 
@@ -619,10 +619,33 @@ public class CreateTest
 
         emitError.TrySetResult();
         await onErrorResumeStarted.Task;
-        
+
         var disposeTask = subscription.DisposeAsync().AsTask();
         await onErrorResumeTokenCancelled.Task;
-        
+
         await disposeTask;
+    }
+
+    [Fact]
+    public async Task CreateAsBackgroundJob_Cancellation_ShouldDisposeObserver()
+    {
+        var disposedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var subscription = await AsyncObservable.CreateAsBackgroundJob<int>(async (observer, token) => throw new OperationCanceledException())
+                                                .Select(x => x)
+                                                .OnDispose(() => disposedTcs.SetResult())
+                                                .SubscribeAsync();
+
+        await disposedTcs.Task;
+
+    }
+
+    [Fact]
+    public async Task CreateAsBackgroundJob_CancellationOnAsync()
+    {
+        await Should.ThrowAsync<OperationCanceledException>(async () =>
+                                                          await AsyncObservable.CreateAsBackgroundJob<int>(async (observer, token) => throw new OperationCanceledException())
+                                                                               .Select(x => x)
+                                                                               .FirstAsync());
+
     }
 }

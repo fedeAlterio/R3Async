@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace R3Async.Internals;
 
-internal readonly struct Optional<T>
+public readonly struct Optional<T>
 {
     readonly T? _value;
     public Optional() => (_value, HasValue) = (default, false);

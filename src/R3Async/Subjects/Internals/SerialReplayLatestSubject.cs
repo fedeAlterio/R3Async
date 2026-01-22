@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using R3Async.Internals;
 
 namespace R3Async.Subjects.Internals;
 
-internal sealed class SerialStatelessBehaviorSubject<T>(T startValue) : BaseStatelessBehaviorSubject<T>(startValue)
+internal sealed class SerialReplayLatestSubject<T>(Optional<T> startValue) : BaseReplayLatestSubject<T>(startValue)
 {
     protected override async ValueTask OnNextAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, T value, CancellationToken cancellationToken)
     {

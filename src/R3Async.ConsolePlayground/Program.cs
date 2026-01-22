@@ -1,19 +1,22 @@
-﻿using System.Threading.Channels;
-using R3Async;
+﻿using R3Async;
 
-var obs = AsyncObservable.Interval(TimeSpan.FromSeconds(1));
-
-await foreach (var x in obs.ToAsyncEnumerable(() => Channel.CreateBounded<long>(0)))
+var allBlocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+var total = Environment.ProcessorCount * 10;
+int count = total;
+for (var i = 0; i < total; i++)
 {
-    Console.WriteLine($"Consumed {x}");
-    var line = Console.ReadLine();
-    if(line == "exit")
-        break;
+    Task.Run(() =>
+    {
+        if (Interlocked.Decrement(ref count) == 0)
+        {
+            allBlocked.SetResult();
+        }
+
+        new TaskCompletionSource().Task.GetAwaiter().GetResult(); // block indefinitely
+    });
 }
 
-Console.WriteLine("Breaked");
+Console.WriteLine($"Inizio {DateTime.Now}");
+await allBlocked.Task;
+Console.WriteLine($"Fine {DateTime.Now}");
 Console.ReadLine();
-
-
-
-

@@ -1,7 +1,8 @@
-﻿using System;
+﻿using R3Async.Internals;
+using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using R3Async.Internals;
 
 namespace R3Async;
 
@@ -15,6 +16,7 @@ public static partial class AsyncObservable
         int _refCount;
         SingleAssignmentAsyncDisposable? _connection;
 
+        [DebuggerStepThrough]
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
             using(await _gate.LockAsync())
@@ -51,6 +53,7 @@ public static partial class AsyncObservable
                 return observer.OnCompletedAsync(result);
             }
 
+            [DebuggerStepThrough]
             protected override async ValueTask DisposeAsyncCore()
             {
                 using(await parent._gate.LockAsync())
