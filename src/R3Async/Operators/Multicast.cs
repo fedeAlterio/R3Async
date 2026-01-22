@@ -32,8 +32,8 @@ public static partial class AsyncObservable
         public ConnectableAsyncObservable<T> Publish(T initialValue, BehaviorSubjectCreationOptions options) => source.Multicast(Subject.CreateBehavior(initialValue, options));
         public ConnectableAsyncObservable<T> StatelessPublish(T initialValue) => source.Multicast(Subject.CreateBehavior(initialValue, _statelessBehaviorPublishOptions));
 
-        public ConnectableAsyncObservable<T> PublishReplayLatest() => source.Multicast(Subject.CreateReplayLatest<T>());
-        public ConnectableAsyncObservable<T> PublishReplayLatest(ReplayLatestSubjectCreationOptions options) => source.Multicast(Subject.CreateReplayLatest<T>(options));
-        public ConnectableAsyncObservable<T> StatelessPublishReplayLatest() => source.Multicast(Subject.CreateReplayLatest<T>(_statelessReplayLatestPublishOptions));
+        public ConnectableAsyncObservable<T> ReplayLatestPublish() => source.Multicast(Subject.CreateReplayLatest<T>());
+        public ConnectableAsyncObservable<T> ReplayLatestPublish(ReplayLatestSubjectCreationOptions options) => source.Multicast(Subject.CreateReplayLatest<T>(options));
+        public ConnectableAsyncObservable<T> StatelessReplayLatestPublish() => source.Multicast(Subject.CreateReplayLatest<T>(_statelessReplayLatestPublishOptions));
     }
 }
