@@ -5,22 +5,167 @@ using R3Async.Internals;
 
 namespace R3Async;
 
+public sealed record TakeUntilOptions
+{
+    public bool SourceFailsWhenOtherFails { get; init; }
+    public static TakeUntilOptions Default { get; } = new();
+}
+
 public static partial class AsyncObservable
 {
-    public static AsyncObservable<T> TakeUntil<T, TOther>(this AsyncObservable<T> source, AsyncObservable<TOther> other)
+    extension<T>(AsyncObservable<T> source)
     {
-        if (source is null)
-            throw new ArgumentNullException(nameof(source));
-        if (other is null)
-            throw new ArgumentNullException(nameof(other));
+        public AsyncObservable<T> TakeUntil<TOther>(AsyncObservable<TOther> other, TakeUntilOptions? options = null)
+        {
+            if (source is null)
+                throw new ArgumentNullException(nameof(source));
+            if (other is null)
+                throw new ArgumentNullException(nameof(other));
 
-        return new TakeUntilAsyncObservable<T, TOther>(source, other);
+            return new TakeUntilAsyncObservable<T, TOther>(source, other, options ?? TakeUntilOptions.Default);
+        }
+
+        public AsyncObservable<T> TakeUntil(Task task, TakeUntilOptions? options = null)
+        {
+            if (source is null)
+                throw new ArgumentNullException(nameof(source));
+
+            return new TakeUntilValueTask<T>(source, task, options ?? TakeUntilOptions.Default);
+        }
     }
 
-    class TakeUntilAsyncObservable<T, TOther>(AsyncObservable<T> source, AsyncObservable<TOther> other) : AsyncObservable<T>
+    sealed class TakeUntilValueTask<T>(AsyncObservable<T> source, Task task, TakeUntilOptions options) : AsyncObservable<T>
+    {
+        readonly AsyncObservable<T> _source = source;
+        readonly Task _task = task;
+        readonly TakeUntilOptions _options = options;
+
+        protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
+        {
+            var subscription = new Subscription(this, observer);
+            try
+            {
+                await subscription.SubscribeAsync(cancellationToken);
+                return subscription;
+            }
+            catch
+            {
+                await subscription.DisposeAsync();
+                throw;
+            }
+        }
+
+        sealed class Subscription : IAsyncDisposable
+        {
+            readonly CancellationTokenSource _cts = new();
+            readonly TaskCompletionJoiner _taskJoiner = new();
+            readonly TakeUntilValueTask<T> _parent;
+            readonly AsyncObserver<T> _observer;
+            readonly AsyncGate _gate = new();
+            readonly SingleAssignmentAsyncDisposable _subscription = new();
+            readonly CancellationToken _disposeCancellationToken;
+
+            public Subscription(TakeUntilValueTask<T> parent, AsyncObserver<T> observer)
+            {
+                _parent = parent;
+                _observer = observer;
+                _disposeCancellationToken = _cts.Token;
+            }
+
+            public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
+            {
+                var task = _parent._task;
+                if (task.IsCompletedSuccessfully)
+                {
+                    _taskJoiner.BindTo(task, _disposeCancellationToken);
+                    await ForwardOnCompletedAsync(Result.Success);
+                    return;
+                }
+
+                _taskJoiner.BindTo(WaitAndComplete(task), _disposeCancellationToken);
+                var sourceSubscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
+                await _subscription.SetDisposableAsync(sourceSubscription);
+            }
+
+            public async Task WaitAndComplete(Task task)
+            {
+                try
+                {
+                    await task;
+                    await ForwardOnCompletedAsync(Result.Success);
+                }
+                catch (Exception e)
+                {
+                    if (_parent._options.SourceFailsWhenOtherFails)
+                    {
+                        await ForwardOnCompletedAsync(Result.Failure(e));
+                    }
+                    else
+                    {
+                        await ForwardOnErrorResumeAsync(e, CancellationToken.None);
+                    }
+                }
+            }
+
+            async ValueTask ForwardOnNextAsync(T value, CancellationToken cancellationToken)
+            {
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using (await _gate.LockAsync())
+                {
+                    await _observer.OnNextAsync(value, linkedCts.Token);
+                }
+            }
+
+            async ValueTask ForwardOnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
+            {
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using (await _gate.LockAsync())
+                {
+                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                }
+            }
+
+            async ValueTask ForwardOnCompletedAsync(Result result)
+            {
+                using (await _gate.LockAsync())
+                {
+                    await _observer.OnCompletedAsync(result);
+                }
+            }
+
+            public async ValueTask DisposeAsync()
+            {
+                await Task.Run(_cts.Cancel);
+                await _taskJoiner.WaitCompletionAsync();
+                _cts.Dispose();
+                await _subscription.DisposeAsync();
+            }
+
+            sealed class SourceObserver(Subscription parent) : AsyncObserver<T>
+            {
+                protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+                {
+                    return parent.ForwardOnNextAsync(value, cancellationToken);
+                }
+
+                protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+                {
+                    return parent.ForwardOnErrorResumeAsync(error, cancellationToken);
+                }
+
+                protected override ValueTask OnCompletedAsyncCore(Result result)
+                {
+                    return parent.ForwardOnCompletedAsync(result);
+                }
+            }
+        }
+    }
+
+    sealed class TakeUntilAsyncObservable<T, TOther>(AsyncObservable<T> source, AsyncObservable<TOther> other, TakeUntilOptions options) : AsyncObservable<T>
     {
         readonly AsyncObservable<T> _source = source;
         readonly AsyncObservable<TOther> _other = other;
+        readonly TakeUntilOptions _options = options;
 
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
@@ -96,6 +241,7 @@ public static partial class AsyncObservable
                 await Task.Run(_cts.Cancel, _disposeCancellationToken);
                 await _otherDisposable.DisposeAsync();
                 await _disposable.DisposeAsync();
+                _cts.Dispose();
             }
 
             sealed class FirstSubscription(Subscription parent) : AsyncObserver<T>
@@ -133,7 +279,12 @@ public static partial class AsyncObservable
                 {
                     if (result.IsFailure)
                     {
-                        return parent.ForwardOnErrorResumeAsync(result.Exception!, CancellationToken.None);
+                        if (parent._parent._options.SourceFailsWhenOtherFails)
+                        {
+                            return parent.ForwardOnCompletedAsync(result);
+                        }
+
+                        return parent.ForwardOnCompletedAsync(Result.Success);
                     }
 
                     return default;
