@@ -364,4 +364,31 @@ public class TakeUntilTest
 
         Should.Throw<ArgumentNullException>(() => source.TakeUntil(task));
     }
+
+    [Fact]
+    public async Task TakeUntil_CancellationToken_TokenCanceled_CompletesSource()
+    {
+        var source = Subject.Create<int>();
+        var cts = new CancellationTokenSource();
+
+        var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var takeUntil = source.Values.TakeUntil(cts.Token);
+
+        await using var subscription = await takeUntil.SubscribeAsync(
+            async (x, token) => {},
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result),
+            CancellationToken.None);
+
+        await source.OnNextAsync(1, CancellationToken.None);
+        await source.OnNextAsync(2, CancellationToken.None);
+
+        cts.Cancel();
+
+        await source.OnNextAsync(3, CancellationToken.None);
+
+        var result = await completedTcs.Task;
+        result.IsSuccess.ShouldBeTrue();
+    }
 }
