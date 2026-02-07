@@ -259,13 +259,12 @@ public class TakeUntilTest
         var source = Subject.Create<int>();
         var taskTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var results = new List<int>();
         var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var takeUntil = source.Values.TakeUntil(taskTcs.Task);
 
         await using var subscription = await takeUntil.SubscribeAsync(
-            async (x, token) => results.Add(x),
+            async (x, token) => {},
             async (ex, token) => { },
             async result => completedTcs.TrySetResult(result),
             CancellationToken.None);

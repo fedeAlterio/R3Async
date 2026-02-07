@@ -82,7 +82,6 @@ public static partial class AsyncObservable
         sealed class Subscription : IAsyncDisposable
         {
             readonly CancellationTokenSource _cts = new();
-            readonly TaskCompletionJoiner _taskJoiner = new();
             readonly TakeUntilFromRawSignal<T> _parent;
             readonly AsyncObserver<T> _observer;
             readonly AsyncGate _gate = new();
@@ -98,61 +97,68 @@ public static partial class AsyncObservable
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                _taskJoiner.BindTo(WaitAndComplete(), _disposeCancellationToken);
+                WaitAndComplete();
                 var sourceSubscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
                 await _subscription.SetDisposableAsync(sourceSubscription);
             }
 
-            async Task WaitAndComplete()
+            async void WaitAndComplete()
             {
-                var tcs = new TaskCompletionSource<object?>();
-
-                void Stop(Result result)
-                {
-                    if (result.IsFailure)
-                    {
-                        tcs.SetException(result.Exception);
-                    }
-                    else
-                    {
-                        tcs.SetResult(null);
-                    }
-                }
-
-                var disposable = _parent._stopSignalSignal(Stop);
-
                 try
                 {
-                    await tcs.Task;
-                    try
+                    var tcs = new TaskCompletionSource<object?>();
+
+                    void Stop(Result result)
                     {
-                        await disposable.DisposeAsync();
-                    }
-                    catch 
-                    {
-                        // Ignored
-                    }
-                    await ForwardOnCompletedAsync(Result.Success);
-                }
-                catch (Exception e)
-                {
-                    try
-                    {
-                        await disposable.DisposeAsync();
-                    }
-                    catch
-                    {
-                        // Ignored
+                        if (result.IsFailure)
+                        {
+                            tcs.SetException(result.Exception);
+                        }
+                        else
+                        {
+                            tcs.SetResult(null);
+                        }
                     }
 
-                    if (_parent._options.SourceFailsWhenOtherFails)
+                    var disposable = _parent._stopSignalSignal(Stop);
+
+                    try
                     {
-                        await ForwardOnCompletedAsync(Result.Failure(e));
+                        await tcs.Task.WaitAsync(Timeout.InfiniteTimeSpan, _disposeCancellationToken);
+                        try
+                        {
+                            await disposable.DisposeAsync();
+                        }
+                        catch
+                        {
+                            // Ignored
+                        }
+                        await ForwardOnCompletedAsync(Result.Success);
                     }
-                    else
+                    catch (Exception e)
                     {
-                        await ForwardOnErrorResumeAsync(e, CancellationToken.None);
+                        try
+                        {
+                            await disposable.DisposeAsync();
+                        }
+                        catch
+                        {
+                            // Ignored
+                        }
+
+                        if (_parent._options.SourceFailsWhenOtherFails)
+                        {
+                            await ForwardOnCompletedAsync(Result.Failure(e));
+                        }
+                        else
+                        {
+                            await ForwardOnErrorResumeAsync(e, CancellationToken.None);
+                        }
                     }
+                }
+                catch
+                {
+                    // Ignored
                 }
             }
 
@@ -185,7 +191,6 @@ public static partial class AsyncObservable
             public async ValueTask DisposeAsync()
             {
                 await Task.Run(_cts.Cancel);
-                await _taskJoiner.WaitCompletionAsync();
                 _cts.Dispose();
                 await _subscription.DisposeAsync();
             }
@@ -234,7 +239,6 @@ public static partial class AsyncObservable
         sealed class Subscription : IAsyncDisposable
         {
             readonly CancellationTokenSource _cts = new();
-            readonly TaskCompletionJoiner _taskJoiner = new();
             readonly TakeUntilTask<T> _parent;
             readonly AsyncObserver<T> _observer;
             readonly AsyncGate _gate = new();
@@ -251,35 +255,35 @@ public static partial class AsyncObservable
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
                 var task = _parent._task;
-                if (task.IsCompletedSuccessfully)
-                {
-                    _taskJoiner.BindTo(task, _disposeCancellationToken);
-                    await ForwardOnCompletedAsync(Result.Success);
-                    return;
-                }
-
-                _taskJoiner.BindTo(WaitAndComplete(task), _disposeCancellationToken);
+                WaitAndComplete(task);
                 var sourceSubscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
                 await _subscription.SetDisposableAsync(sourceSubscription);
             }
 
-            async Task WaitAndComplete(Task task)
+            async void WaitAndComplete(Task task)
             {
                 try
                 {
-                    await task;
-                    await ForwardOnCompletedAsync(Result.Success);
+                    try
+                    {
+                        await task.WaitAsync(Timeout.InfiniteTimeSpan, _disposeCancellationToken);
+                        await ForwardOnCompletedAsync(Result.Success);
+                    }
+                    catch (Exception e)
+                    {
+                        if (_parent._options.SourceFailsWhenOtherFails)
+                        {
+                            await ForwardOnCompletedAsync(Result.Failure(e));
+                        }
+                        else
+                        {
+                            await ForwardOnErrorResumeAsync(e, CancellationToken.None);
+                        }
+                    }
                 }
-                catch (Exception e)
+                catch 
                 {
-                    if (_parent._options.SourceFailsWhenOtherFails)
-                    {
-                        await ForwardOnCompletedAsync(Result.Failure(e));
-                    }
-                    else
-                    {
-                        await ForwardOnErrorResumeAsync(e, CancellationToken.None);
-                    }
+                    // Ignored
                 }
             }
 
@@ -312,7 +316,6 @@ public static partial class AsyncObservable
             public async ValueTask DisposeAsync()
             {
                 await Task.Run(_cts.Cancel);
-                await _taskJoiner.WaitCompletionAsync();
                 _cts.Dispose();
                 await _subscription.DisposeAsync();
             }
