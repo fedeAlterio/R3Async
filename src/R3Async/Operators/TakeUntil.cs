@@ -1,9 +1,7 @@
 ﻿using R3Async.Internals;
 using System;
-using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using R3Async.Helpers;
 
 namespace R3Async;
 
@@ -77,8 +75,8 @@ public static partial class AsyncObservable
             readonly TakeUntilCancellationToken<T> _parent;
             readonly AsyncObserver<T> _observer;
             readonly AsyncGate _gate = new();
-            readonly SingleAssignmentAsyncDisposable _subscription = new();
-            readonly SingleAssignmentAsyncDisposable _tokenRegistration = new();
+            IAsyncDisposable? _subscription;
+            IDisposable? _tokenRegistration;
             readonly CancellationToken _disposeCancellationToken;
 
             public Subscription(TakeUntilCancellationToken<T> parent, AsyncObserver<T> observer)
@@ -90,17 +88,15 @@ public static partial class AsyncObservable
 
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
-                var registration = _parent._cancellationToken.Register(OnTokenCanceled);
-                await _tokenRegistration.SetDisposableAsync(registration.ToAsyncDisposable());
-
-                var sourceSubscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
-                await _subscription.SetDisposableAsync(sourceSubscription);
+                _tokenRegistration = _parent._cancellationToken.Register(OnTokenCanceled);
+                _subscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
             }
 
             async void OnTokenCanceled()
             {
                 try
                 {
+                    await Task.Yield();
                     await ForwardOnCompletedAsync(Result.Success);
                 }
                 catch
@@ -139,7 +135,11 @@ public static partial class AsyncObservable
             {
                 await Task.Run(_cts.Cancel);
                 _cts.Dispose();
-                await _subscription.DisposeAsync();
+                _tokenRegistration?.Dispose();
+                if (_subscription is not null)
+                {
+                    await _subscription.DisposeAsync();
+                }
             }
 
             sealed class SourceObserver(Subscription parent) : AsyncObserver<T>
@@ -189,7 +189,7 @@ public static partial class AsyncObservable
             readonly TakeUntilFromRawSignal<T> _parent;
             readonly AsyncObserver<T> _observer;
             readonly AsyncGate _gate = new();
-            readonly SingleAssignmentAsyncDisposable _subscription = new();
+            IAsyncDisposable? _subscription;
             readonly CancellationToken _disposeCancellationToken;
 
             public Subscription(TakeUntilFromRawSignal<T> parent, AsyncObserver<T> observer)
@@ -202,8 +202,7 @@ public static partial class AsyncObservable
             public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
             {
                 WaitAndComplete();
-                var sourceSubscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
-                await _subscription.SetDisposableAsync(sourceSubscription);
+                _subscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
             }
 
             async void WaitAndComplete()
@@ -296,7 +295,10 @@ public static partial class AsyncObservable
             {
                 await Task.Run(_cts.Cancel);
                 _cts.Dispose();
-                await _subscription.DisposeAsync();
+                if (_subscription is not null)
+                {
+                    await _subscription.DisposeAsync();
+                }
             }
 
             sealed class SourceObserver(Subscription parent) : AsyncObserver<T>
@@ -346,7 +348,7 @@ public static partial class AsyncObservable
             readonly TakeUntilTask<T> _parent;
             readonly AsyncObserver<T> _observer;
             readonly AsyncGate _gate = new();
-            readonly SingleAssignmentAsyncDisposable _subscription = new();
+            IAsyncDisposable? _subscription;
             readonly CancellationToken _disposeCancellationToken;
 
             public Subscription(TakeUntilTask<T> parent, AsyncObserver<T> observer)
@@ -360,8 +362,7 @@ public static partial class AsyncObservable
             {
                 var task = _parent._task;
                 WaitAndComplete(task);
-                var sourceSubscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
-                await _subscription.SetDisposableAsync(sourceSubscription);
+                _subscription = await _parent._source.SubscribeAsync(new SourceObserver(this), cancellationToken);
             }
 
             async void WaitAndComplete(Task task)
@@ -421,7 +422,10 @@ public static partial class AsyncObservable
             {
                 await Task.Run(_cts.Cancel);
                 _cts.Dispose();
-                await _subscription.DisposeAsync();
+                if (_subscription is not null)
+                {
+                    await _subscription.DisposeAsync();
+                }
             }
 
             sealed class SourceObserver(Subscription parent) : AsyncObserver<T>
