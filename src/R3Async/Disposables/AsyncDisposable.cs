@@ -18,13 +18,4 @@ public static class AsyncDisposable
     {
         public ValueTask DisposeAsync() => new ();
     }
-
-    sealed class DisposableToAsyncDisposable(IDisposable disposable) : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync()
-        {
-            disposable.Dispose();
-            return default;
-        }
-    }
 }
