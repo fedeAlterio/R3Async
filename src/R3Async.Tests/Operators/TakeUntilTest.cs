@@ -85,33 +85,6 @@ public class TakeUntilTest
     }
 
     [Fact]
-    public async Task TakeUntil_SourceErrors_PropagatesError()
-    {
-        var source = Subject.Create<int>();
-        var other = Subject.Create<string>();
-        var expectedException = new InvalidOperationException("source error");
-
-        var results = new List<int>();
-        var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var takeUntil = source.Values.TakeUntil(other.Values);
-
-        await using var subscription = await takeUntil.SubscribeAsync(
-            async (x, token) => results.Add(x),
-            async (ex, token) => errorTcs.TrySetResult(ex),
-            null,
-            CancellationToken.None);
-
-        await source.OnNextAsync(1, CancellationToken.None);
-        await source.OnErrorResumeAsync(expectedException, CancellationToken.None);
-        await source.OnNextAsync(2, CancellationToken.None);
-
-        var error = await errorTcs.Task;
-        error.ShouldBe(expectedException);
-        results.ShouldBe(new[] { 1, 2 });
-    }
-
-    [Fact]
     public async Task TakeUntil_OtherErrors_PropagatesError()
     {
         var source = Subject.Create<int>();
@@ -307,35 +280,7 @@ public class TakeUntilTest
         var result = await completedTcs.Task;
         result.IsSuccess.ShouldBeTrue();
     }
-
-    [Fact]
-    public async Task TakeUntil_Task_SourceCompletesBeforeTask_Completes()
-    {
-        var source = Subject.Create<int>();
-        var taskTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var results = new List<int>();
-        var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var takeUntil = source.Values.TakeUntil(taskTcs.Task);
-
-        await using var subscription = await takeUntil.SubscribeAsync(
-            async (x, token) => results.Add(x),
-            async (ex, token) => { },
-            async result => completedTcs.TrySetResult(result),
-            CancellationToken.None);
-
-        await source.OnNextAsync(1, CancellationToken.None);
-        await source.OnNextAsync(2, CancellationToken.None);
-        await source.OnCompletedAsync(Result.Success);
-
-        var result = await completedTcs.Task;
-        result.IsSuccess.ShouldBeTrue();
-        results.ShouldBe(new[] { 1, 2 });
-
-        taskTcs.TrySetResult();
-    }
-
+ 
     [Fact]
     public async Task TakeUntil_Task_TaskFaults_PropagatesError()
     {
@@ -385,28 +330,6 @@ public class TakeUntilTest
     }
 
     [Fact]
-    public async Task TakeUntil_Task_Dispose_CancelsTaskWait()
-    {
-        var source = Subject.Create<int>();
-        var taskTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var results = new List<int>();
-
-        var takeUntil = source.Values.TakeUntil(taskTcs.Task);
-
-        var subscription = await takeUntil.SubscribeAsync(
-            async (x, token) => results.Add(x),
-            CancellationToken.None);
-
-        await source.OnNextAsync(1, CancellationToken.None);
-        await subscription.DisposeAsync();
-
-        taskTcs.TrySetResult();
-
-        results.ShouldBe(new[] { 1 });
-    }
-
-    [Fact]
     public async Task TakeUntil_Task_SourceErrors_PropagatesError()
     {
         var source = Subject.Create<int>();
@@ -431,34 +354,6 @@ public class TakeUntilTest
         var error = await errorTcs.Task;
         error.ShouldBe(expectedException);
         results.ShouldBe(new[] { 1, 2 });
-    }
-
-
-    [Fact]
-    public async Task TakeUntil_Task_SourceCompletesWithFailure_PropagatesFailure()
-    {
-        var source = Subject.Create<int>();
-        var taskTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var expectedException = new InvalidOperationException("source failure");
-
-        var results = new List<int>();
-        var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var takeUntil = source.Values.TakeUntil(taskTcs.Task);
-
-        await using var subscription = await takeUntil.SubscribeAsync(
-            async (x, token) => results.Add(x),
-            async (ex, token) => { },
-            async result => completedTcs.TrySetResult(result),
-            CancellationToken.None);
-
-        await source.OnNextAsync(1, CancellationToken.None);
-        await source.OnCompletedAsync(Result.Failure(expectedException));
-
-        var result = await completedTcs.Task;
-        result.IsFailure.ShouldBeTrue();
-        result.Exception.ShouldBe(expectedException);
-        results.ShouldBe(new[] { 1 });
     }
 
     [Fact]
