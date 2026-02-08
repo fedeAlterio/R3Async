@@ -158,6 +158,7 @@ Transform and compose observable streams:
 - `OfType` - Filter by type
 - `Distinct` / `DistinctUntilChanged` - Remove duplicates
 - `Skip` / `Take` - Control stream length
+- `TakeUntil` - Stop stream when a condition or signal occurs
 
 #### Transformation
 - `Select` - Transform values
@@ -229,6 +230,87 @@ await foreach (var x in observable.ToAsyncEnumerable(() => Channel.CreateUnbound
 ```
 
 Channels already encode the desired conversion semantics, so you have full control over buffering and backpressure behavior.
+
+### TakeUntil
+
+The `TakeUntil` operator stops emitting values from the source observable when a termination signal occurs. It supports multiple overloads for different signal types:
+
+```csharp
+// Stop when another observable emits
+observable.TakeUntil(otherObservable)
+
+// Stop when a task completes
+observable.TakeUntil(task)
+
+// Stop when cancellation token is triggered
+observable.TakeUntil(cancellationToken)
+
+// Stop when predicate returns true
+observable.TakeUntil(x => x > 100)
+observable.TakeUntil(async (x, ct) => await ShouldStopAsync(x, ct))
+
+// Stop using a custom completion delegate
+observable.TakeUntil(notifyStop => CreateCustomSignal(notifyStop))
+```
+
+#### TakeUntilOptions
+
+For overloads that accept another observable, task, or completion delegate, you can configure error behavior using `TakeUntilOptions`:
+
+```csharp
+public sealed record TakeUntilOptions
+{
+    public bool SourceFailsWhenOtherFails { get; init; }
+}
+```
+
+- **`SourceFailsWhenOtherFails = false`** (default) - If the signal source fails, the error is forwarded via `OnErrorResumeAsync` but the stream can potentially recover
+- **`SourceFailsWhenOtherFails = true`** - If the signal source fails, the stream completes with `Result.Failure`, terminating the observable
+
+```csharp
+// If otherObservable fails, forward error via OnErrorResumeAsync
+await observable.TakeUntil(otherObservable, new TakeUntilOptions
+{
+    SourceFailsWhenOtherFails = false
+}).SubscribeAsync(...);
+
+// If task fails, complete stream with failure
+await observable.TakeUntil(task, new TakeUntilOptions 
+{
+    SourceFailsWhenOtherFails = true
+}).SubscribeAsync(...);
+```
+
+#### CompletionObservableDelegate
+
+For advanced scenarios, `TakeUntil` accepts a `CompletionObservableDelegate` that lets you integrate custom completion signals:
+
+```csharp
+public delegate IAsyncDisposable CompletionObservableDelegate(Action<Result> notifyStop);
+```
+
+Your delegate receives a callback to trigger completion and must return an `IAsyncDisposable` for cleanup:
+
+```csharp
+var observable = source.TakeUntil(notifyStop =>
+{
+    // Set up your signal source
+    var timer = new Timer(_ => 
+    {
+        notifyStop(Result.Success); // Complete successfully
+        // or: notifyStop(Result.Failure(exception)); // Complete with failure
+    }, null, TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan);
+    
+    // Return disposable for cleanup
+    return AsyncDisposable.Create(() =>
+    {
+        timer.Dispose();
+        return default;
+    });
+});
+```
+
+The disposable is called when the observable completes or is disposed. This pattern allows integration with any event-based or callback-based completion mechanism.
 
 ### ObserveOn and AsyncContext
 
