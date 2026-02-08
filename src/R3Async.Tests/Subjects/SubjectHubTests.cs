@@ -1,4 +1,5 @@
-﻿using R3Async.Subjects;
+﻿using R3Async;
+using R3Async.Subjects;
 using Shouldly;
 
 namespace R3Async.Tests.Subjects;
@@ -6,44 +7,44 @@ namespace R3Async.Tests.Subjects;
 public class ConnectionHubTest
 {
     [Fact]
-    public async Task SubjectHub_GetOrCreateConnection_CreatesNewSubjectForNewKey()
+    public async Task ConnectionHub_GetOrCreateConnection_CreatesNewSubjectForNewKey()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         await using var connection = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
 
-        connection.Subject.ShouldNotBeNull();
+        connection.Value.ShouldNotBeNull();
     }
 
     [Fact]
-    public async Task SubjectHub_GetOrCreateConnection_ReturnsSameSubjectForSameKey()
+    public async Task ConnectionHub_GetOrCreateConnection_ReturnsSameSubjectForSameKey()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         await using var connection1 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
         await using var connection2 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
 
-        connection1.Subject.ShouldBe(connection2.Subject);
+        connection1.Value.ShouldBe(connection2.Value);
     }
 
     [Fact]
-    public async Task SubjectHub_GetOrCreateConnection_CreatesDifferentSubjectsForDifferentKeys()
+    public async Task ConnectionHub_GetOrCreateConnection_CreatesDifferentSubjectsForDifferentKeys()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         await using var connection1 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
         await using var connection2 = await hub.GetOrCreateConnectionAsync("key2", CancellationToken.None);
 
-        connection1.Subject.ShouldNotBe(connection2.Subject);
+        connection1.Value.ShouldNotBe(connection2.Value);
     }
 
     [Fact]
-    public async Task SubjectHub_DisposeConnection_RemovesSubjectWhenAllConnectionsDisposed()
+    public async Task ConnectionHub_DisposeConnection_RemovesSubjectWhenAllConnectionsDisposed()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         var connection1 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
-        var subject1 = connection1.Subject;
+        var subject1 = connection1.Value;
         var connection2 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
 
         await connection1.DisposeAsync();
@@ -51,13 +52,13 @@ public class ConnectionHubTest
 
         // Get a new connection - should create a new subject
         await using var connection3 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
-        connection3.Subject.ShouldNotBe(subject1);
+        connection3.Value.ShouldNotBe(subject1);
     }
 
     [Fact]
-    public async Task SubjectHub_MultipleConnections_SharesSameSubject()
+    public async Task ConnectionHub_MultipleConnections_SharesSameSubject()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         await using var connection1 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
         await using var connection2 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
@@ -67,19 +68,19 @@ public class ConnectionHubTest
         var results2 = new List<int>();
         var results3 = new List<int>();
 
-        await using var sub1 = await connection1.Subject.Values.SubscribeAsync(
+        await using var sub1 = await connection1.Value.Values.SubscribeAsync(
             async (x, token) => results1.Add(x),
             CancellationToken.None);
 
-        await using var sub2 = await connection2.Subject.Values.SubscribeAsync(
+        await using var sub2 = await connection2.Value.Values.SubscribeAsync(
             async (x, token) => results2.Add(x),
             CancellationToken.None);
 
-        await using var sub3 = await connection3.Subject.Values.SubscribeAsync(
+        await using var sub3 = await connection3.Value.Values.SubscribeAsync(
             async (x, token) => results3.Add(x),
             CancellationToken.None);
 
-        await connection1.Subject.OnNextAsync(42, CancellationToken.None);
+        await connection1.Value.OnNextAsync(42, CancellationToken.None);
 
         results1.ShouldBe(new[] { 42 });
         results2.ShouldBe(new[] { 42 });
@@ -87,12 +88,12 @@ public class ConnectionHubTest
     }
 
     [Fact]
-    public async Task SubjectHub_RefCounting_KeepsSubjectAliveWhileConnectionsExist()
+    public async Task ConnectionHub_RefCounting_KeepsSubjectAliveWhileConnectionsExist()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         var connection1 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
-        var subject = connection1.Subject;
+        var subject = connection1.Value;
         var connection2 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
 
         // Dispose first connection
@@ -100,17 +101,17 @@ public class ConnectionHubTest
 
         // Second connection should still have the same subject
         var connection3 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
-        connection3.Subject.ShouldBe(subject);
+        connection3.Value.ShouldBe(subject);
 
         await connection2.DisposeAsync();
         await connection3.DisposeAsync();
     }
 
     [Fact]
-    public async Task SubjectHub_FactoryWithKey_PassesKeyToFactory()
+    public async Task ConnectionHub_FactoryWithKey_PassesKeyToFactory()
     {
         var capturedKeys = new List<string>();
-        var hub = ConnectionHub.Create<string, int>(key =>
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key =>
         {
             capturedKeys.Add(key);
             return Subject.Create<int>();
@@ -124,9 +125,9 @@ public class ConnectionHubTest
     }
 
     [Fact]
-    public async Task SubjectHub_DisposeConnection_MultipleTimes_DoesNotThrow()
+    public async Task ConnectionHub_DisposeConnection_MultipleTimes_DoesNotThrow()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         var connection = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
 
@@ -136,30 +137,30 @@ public class ConnectionHubTest
     }
 
     [Fact]
-    public async Task SubjectHub_AccessDisposedConnection_ThrowsObjectDisposedException()
+    public async Task ConnectionHub_AccessDisposedConnection_ThrowsObjectDisposedException()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
 
         var connection = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
         await connection.DisposeAsync();
 
-        Should.Throw<ObjectDisposedException>(() => connection.Subject);
+        Should.Throw<ObjectDisposedException>(() => connection.Value);
     }
 
     [Fact]
-    public async Task SubjectHub_FactoryThrows_ExceptionPropagates()
+    public async Task ConnectionHub_FactoryThrows_ExceptionPropagates()
     {
-        var hub = ConnectionHub.Create<string, int>(key => throw new InvalidOperationException("Factory error"));
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => throw new InvalidOperationException("Factory error"));
 
         await Should.ThrowAsync<InvalidOperationException>(async () =>
             await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None));
     }
 
     [Fact]
-    public async Task SubjectHub_FactoryThrows_SubjectNotCached()
+    public async Task ConnectionHub_FactoryThrows_SubjectNotCached()
     {
         var callCount = 0;
-        var hub = ConnectionHub.Create<string, int>(key =>
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key =>
         {
             callCount++;
             if (callCount == 1)
@@ -173,14 +174,14 @@ public class ConnectionHubTest
 
         // Second call should succeed and create a new subject
         await using var connection = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
-        connection.Subject.ShouldNotBeNull();
+        connection.Value.ShouldNotBeNull();
         callCount.ShouldBe(2);
     }
 
     [Fact]
-    public async Task SubjectHub_CancellationToken_ThrowsOperationCanceledException()
+    public async Task ConnectionHub_CancellationToken_ThrowsOperationCanceledException()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
         var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -189,16 +190,16 @@ public class ConnectionHubTest
     }
 
     [Fact]
-    public async Task SubjectHub_BehaviorSubject_LateSubscriberReceivesLastValue()
+    public async Task ConnectionHub_BehaviorSubject_LateSubscriberReceivesLastValue()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.CreateBehavior(0));
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.CreateBehavior(0));
 
         await using var connection1 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
-        await connection1.Subject.OnNextAsync(42, CancellationToken.None);
+        await connection1.Value.OnNextAsync(42, CancellationToken.None);
 
         await using var connection2 = await hub.GetOrCreateConnectionAsync("key1", CancellationToken.None);
         var results = new List<int>();
-        await using var sub = await connection2.Subject.Values.SubscribeAsync(
+        await using var sub = await connection2.Value.Values.SubscribeAsync(
             async (x, token) => results.Add(x),
             CancellationToken.None);
 
@@ -206,36 +207,36 @@ public class ConnectionHubTest
     }
 
     [Fact]
-    public async Task SubjectHub_IntKeys_WorksCorrectly()
+    public async Task ConnectionHub_IntKeys_WorksCorrectly()
     {
-        var hub = ConnectionHub.Create<int, string>(key => Subject.Create<string>());
+        var hub = ConnectionHub.Create<int, ISubject<string>>(key => Subject.Create<string>());
 
         await using var connection1 = await hub.GetOrCreateConnectionAsync(1, CancellationToken.None);
         await using var connection2 = await hub.GetOrCreateConnectionAsync(2, CancellationToken.None);
         await using var connection3 = await hub.GetOrCreateConnectionAsync(1, CancellationToken.None);
 
-        connection1.Subject.ShouldBe(connection3.Subject);
-        connection1.Subject.ShouldNotBe(connection2.Subject);
+        connection1.Value.ShouldBe(connection3.Value);
+        connection1.Value.ShouldNotBe(connection2.Value);
     }
 
     [Fact]
-    public async Task SubjectHub_ComplexKey_WorksCorrectly()
+    public async Task ConnectionHub_ComplexKey_WorksCorrectly()
     {
-        var hub = ConnectionHub.Create<(string, int), int>(key => Subject.Create<int>());
+        var hub = ConnectionHub.Create<(string, int), ISubject<int>>(key => Subject.Create<int>());
 
         await using var connection1 = await hub.GetOrCreateConnectionAsync(("a", 1), CancellationToken.None);
         await using var connection2 = await hub.GetOrCreateConnectionAsync(("a", 2), CancellationToken.None);
         await using var connection3 = await hub.GetOrCreateConnectionAsync(("a", 1), CancellationToken.None);
 
-        connection1.Subject.ShouldBe(connection3.Subject);
-        connection1.Subject.ShouldNotBe(connection2.Subject);
+        connection1.Value.ShouldBe(connection3.Value);
+        connection1.Value.ShouldNotBe(connection2.Value);
     }
 
     [Fact]
-    public async Task SubjectHub_ConcurrentAccess_AllConnectionsShareSameSubject()
+    public async Task ConnectionHub_ConcurrentAccess_AllConnectionsShareSameSubject()
     {
-        var hub = ConnectionHub.Create<string, int>(key => Subject.Create<int>());
-        var connections = new List<IConnection<int>>();
+        var hub = ConnectionHub.Create<string, ISubject<int>>(key => Subject.Create<int>());
+        var connections = new List<IConnection<ISubject<int>>>();
 
         // Create 10 connections concurrently
         var tasks = Enumerable.Range(0, 10).Select(async i =>
@@ -250,8 +251,8 @@ public class ConnectionHubTest
         await Task.WhenAll(tasks);
 
         // All connections should have the same subject
-        var firstSubject = connections[0].Subject;
-        connections.All(c => c.Subject == firstSubject).ShouldBeTrue();
+        var firstSubject = connections[0].Value;
+        connections.All(c => c.Value == firstSubject).ShouldBeTrue();
 
         // Cleanup
         foreach (var connection in connections)
@@ -261,9 +262,9 @@ public class ConnectionHubTest
     }
 
     [Fact]
-    public async Task SubjectHub_NullFactory_ThrowsArgumentNullException()
+    public async Task ConnectionHub_NullFactory_ThrowsArgumentNullException()
     {
         Should.Throw<ArgumentNullException>(() =>
-            ConnectionHub.Create<string, int>(null!));
+            ConnectionHub.Create<string, ISubject<int>>(null!));
     }
 }
