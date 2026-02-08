@@ -1,22 +1,19 @@
-﻿using R3Async;
+﻿
 
-var allBlocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-var total = Environment.ProcessorCount * 10;
-int count = total;
-for (var i = 0; i < total; i++)
-{
-    Task.Run(() =>
-    {
-        if (Interlocked.Decrement(ref count) == 0)
-        {
-            allBlocked.SetResult();
-        }
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 
-        new TaskCompletionSource().Task.GetAwaiter().GetResult(); // block indefinitely
-    });
-}
+var source = new Subject<int>();
+var other = new Subject<string>();
 
-Console.WriteLine($"Inizio {DateTime.Now}");
-await allBlocked.Task;
-Console.WriteLine($"Fine {DateTime.Now}");
+var takeUntil = source.TakeUntil(other);
+
+using var subscription = takeUntil.Subscribe(x => Console.WriteLine(x),
+                                                   ex => { },
+                                                   () => Console.WriteLine("completed"));
+
+source.OnNext(1);
+other.OnCompleted();
+source.OnNext(2);
+
 Console.ReadLine();
