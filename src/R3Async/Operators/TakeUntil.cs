@@ -11,7 +11,7 @@ public sealed record TakeUntilOptions
     public static TakeUntilOptions Default { get; } = new();
 }
 
-public delegate IAsyncDisposable TakeUntilStopSignalDelegate(Action<Result> notifyStop);
+public delegate IAsyncDisposable CompletionObservableDelegate(Action<Result> notifyStop);
 
 public static partial class AsyncObservable
 {
@@ -40,12 +40,89 @@ public static partial class AsyncObservable
             return new TakeUntilCancellationToken<T>(source, cancellationToken);
         }
 
-        public AsyncObservable<T> TakeUntil(TakeUntilStopSignalDelegate stopSignalSignal, TakeUntilOptions? options = null)
+        public AsyncObservable<T> TakeUntil(Func<T, bool> predicate)
+        {
+            if (predicate is null)
+                throw new ArgumentNullException(nameof(predicate));
+
+            return new TakeUntilPredicate<T>(source, predicate);
+        }
+
+        public AsyncObservable<T> TakeUntil(Func<T, CancellationToken, ValueTask<bool>> asyncPredicate)
+        {
+            if (asyncPredicate is null)
+                throw new ArgumentNullException(nameof(asyncPredicate));
+
+            return new TakeUntilAsyncPredicate<T>(source, asyncPredicate);
+        }
+
+        public AsyncObservable<T> TakeUntil(CompletionObservableDelegate stopSignalSignal, TakeUntilOptions? options = null)
         {
             if (stopSignalSignal is null)
                 throw new ArgumentNullException(nameof(stopSignalSignal));
 
             return new TakeUntilFromRawSignal<T>(source, stopSignalSignal, options ?? TakeUntilOptions.Default);
+        }
+    }
+
+    sealed class TakeUntilPredicate<T>(AsyncObservable<T> source, Func<T, bool> predicate) : AsyncObservable<T>
+    {
+        readonly Func<T,bool> _predicate = predicate;
+        readonly AsyncObservable<T> _source = source;
+
+        protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
+        {
+            var subscription = new TakeUntilPredicateSubscription(this, observer);
+            try
+            {
+                await subscription.SubscribeAsync(cancellationToken);
+                return subscription;
+            }
+            catch
+            {
+                await subscription.DisposeAsync();
+                throw;
+            }
+        }
+
+        sealed class TakeUntilPredicateSubscription(TakeUntilPredicate<T> parent, AsyncObserver<T> observer) : AsyncObserver<T>
+        {
+            IAsyncDisposable? _subscription;
+
+            public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
+            {
+                _subscription = await parent._source.SubscribeAsync(this, cancellationToken);
+            }
+
+            protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+            {
+                if (parent._predicate(value))
+                {
+                    return OnCompletedAsyncCore(Result.Success);
+                }
+
+                return observer.OnNextAsync(value, cancellationToken);
+            }
+
+            protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            {
+                return observer.OnErrorResumeAsync(error, cancellationToken);
+            }
+
+            protected override ValueTask OnCompletedAsyncCore(Result result)
+            {
+                return observer.OnCompletedAsync(result);
+            }
+
+            protected override async ValueTask DisposeAsyncCore()
+            {
+                if (_subscription is not null)
+                {
+                    await _subscription.DisposeAsync();
+                }
+
+                await base.DisposeAsyncCore();
+            }
         }
     }
 
@@ -133,7 +210,7 @@ public static partial class AsyncObservable
 
             public async ValueTask DisposeAsync()
             {
-                await Task.Run(_cts.Cancel);
+                _cts.Cancel();
                 _cts.Dispose();
                 _tokenRegistration?.Dispose();
                 if (_subscription is not null)
@@ -162,10 +239,10 @@ public static partial class AsyncObservable
         }
     }
 
-    sealed class TakeUntilFromRawSignal<T>(AsyncObservable<T> source, TakeUntilStopSignalDelegate stopSignalSignal, TakeUntilOptions options) : AsyncObservable<T>
+    sealed class TakeUntilFromRawSignal<T>(AsyncObservable<T> source, CompletionObservableDelegate stopSignalSignal, TakeUntilOptions options) : AsyncObservable<T>
     {
         readonly AsyncObservable<T> _source = source;
-        readonly TakeUntilStopSignalDelegate _stopSignalSignal = stopSignalSignal;
+        readonly CompletionObservableDelegate _stopSignalSignal = stopSignalSignal;
         readonly TakeUntilOptions _options = options;
 
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
@@ -293,7 +370,7 @@ public static partial class AsyncObservable
 
             public async ValueTask DisposeAsync()
             {
-                await Task.Run(_cts.Cancel);
+                _cts.Cancel();
                 _cts.Dispose();
                 if (_subscription is not null)
                 {
@@ -420,7 +497,7 @@ public static partial class AsyncObservable
 
             public async ValueTask DisposeAsync()
             {
-                await Task.Run(_cts.Cancel);
+                _cts.Cancel();
                 _cts.Dispose();
                 if (_subscription is not null)
                 {
@@ -525,7 +602,7 @@ public static partial class AsyncObservable
 
             public async ValueTask DisposeAsync()
             {
-                await Task.Run(_cts.Cancel, _disposeCancellationToken);
+                _cts.Cancel();
                 await _otherDisposable.DisposeAsync();
                 await _disposable.DisposeAsync();
                 _cts.Dispose();
@@ -576,6 +653,66 @@ public static partial class AsyncObservable
 
                     return default;
                 }
+            }
+        }
+    }
+
+    sealed class TakeUntilAsyncPredicate<T>(AsyncObservable<T> source, Func<T, CancellationToken, ValueTask<bool>> asyncPredicate) : AsyncObservable<T>
+    {
+        readonly Func<T, CancellationToken, ValueTask<bool>> _asyncPredicate = asyncPredicate;
+        readonly AsyncObservable<T> _source = source;
+
+        protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
+        {
+            var subscription = new TakeUntilAsyncPredicateSubscription(this, observer);
+            try
+            {
+                await subscription.SubscribeAsync(cancellationToken);
+                return subscription;
+            }
+            catch
+            {
+                await subscription.DisposeAsync();
+                throw;
+            }
+        }
+
+        sealed class TakeUntilAsyncPredicateSubscription(TakeUntilAsyncPredicate<T> parent, AsyncObserver<T> observer) : AsyncObserver<T>
+        {
+            IAsyncDisposable? _subscription;
+
+            public async ValueTask SubscribeAsync(CancellationToken cancellationToken)
+            {
+                _subscription = await parent._source.SubscribeAsync(this, cancellationToken);
+            }
+
+            protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+            {
+                if (await parent._asyncPredicate(value, cancellationToken))
+                {
+                    await OnCompletedAsyncCore(Result.Success);
+                    return;
+                }
+                await observer.OnNextAsync(value, cancellationToken);
+            }
+
+            protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            {
+                return observer.OnErrorResumeAsync(error, cancellationToken);
+            }
+
+            protected override ValueTask OnCompletedAsyncCore(Result result)
+            {
+                return observer.OnCompletedAsync(result);
+            }
+
+            protected override async ValueTask DisposeAsyncCore()
+            {
+                if (_subscription is not null)
+                {
+                    await _subscription.DisposeAsync();
+                }
+                await base.DisposeAsyncCore();
             }
         }
     }

@@ -390,4 +390,54 @@ public class TakeUntilTest
         var result = await completedTcs.Task;
         result.IsSuccess.ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task TakeUntil_Predicate_CompletesOnPredicateTrue()
+    {
+        var source = Subject.Create<int>();
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Complete when value is greater than or equal to 3
+        var takeUntil = source.Values.TakeUntil(x => x >= 3);
+
+        await using var subscription = await takeUntil.SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result),
+            CancellationToken.None);
+
+        await source.OnNextAsync(1, CancellationToken.None);
+        await source.OnNextAsync(2, CancellationToken.None);
+        await source.OnNextAsync(3, CancellationToken.None); // Should trigger completion
+
+        var result = await completedTcs.Task;
+        result.IsSuccess.ShouldBeTrue();
+        results.ShouldBe(new[] { 1, 2 });
+    }
+
+    [Fact]
+    public async Task TakeUntil_Predicate_CompletesOnAsyncPredicateTrue()
+    {
+        var source = Subject.Create<int>();
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Complete when value is greater than or equal to 3
+        var takeUntil = source.Values.TakeUntil(async (x, token) => x >= 3);
+
+        await using var subscription = await takeUntil.SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result),
+            CancellationToken.None);
+
+        await source.OnNextAsync(1, CancellationToken.None);
+        await source.OnNextAsync(2, CancellationToken.None);
+        await source.OnNextAsync(3, CancellationToken.None); // Should trigger completion
+
+        var result = await completedTcs.Task;
+        result.IsSuccess.ShouldBeTrue();
+        results.ShouldBe(new[] { 1, 2 });
+    }
 }
