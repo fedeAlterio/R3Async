@@ -165,6 +165,9 @@ Transform and compose observable streams:
 - `Cast` - Cast to a different type
 - `Scan` - Accumulate values
 
+#### Grouping
+- `GroupBy` - Group elements by key into separate observable streams
+
 #### Combination
 - `Concat` - Concatenate sequences
 - `Merge` - Merge multiple sequences
@@ -552,6 +555,151 @@ var multicast5 = source.Publish(initialValue: 0, new BehaviorSubjectCreationOpti
 The `RefCount` operator automatically manages connections to a `ConnectableAsyncObservable` based on the number of subscribers. When the first subscriber subscribes, it connects to the source. When the last subscriber unsubscribes, it disconnects.
 
 RefCount is particularly useful with stateless subjects to create observables that automatically reset when all observers unsubscribe.
+
+### GroupBy
+
+The `GroupBy` operator partitions an observable stream into groups based on a key selector function. Each group is represented as a `GroupedAsyncObservable<TKey, TValue>`, which is an observable that has a `Key` property identifying the group.
+
+```csharp
+public abstract class GroupedAsyncObservable<TKey, TValue> : AsyncObservable<TValue>
+{
+    public abstract TKey Key { get; };
+}
+```
+
+#### GroupBy with Custom Subject
+
+By default, `GroupBy` uses a regular `Subject<T>` for each group. You can provide a custom subject selector to use different subject types (e.g., `BehaviorSubject`):
+
+```csharp
+var grouped = source.GroupBy(
+    keySelector: x => x % 2,
+    groupSubjectSelector: key => Subject.CreateBehavior<int>(initialValue: -1)
+);
+```
+
+**Important:** Each group is a hot observable that starts emitting values as soon as the source emits items for that group. Make sure to subscribe to groups promptly to avoid missing values (or use a BehaviorSubject).
+
+### RefCountTable
+
+`RefCountTable<TKey, TValue>` is a utility for managing a dictionary of reference-counted resources. It acts as a **message hub** or **resource registry** where resources are created on-demand and automatically cleaned up when no longer needed, preventing memory leaks.
+
+This is particularly useful for scenarios like:
+- **Message hubs**: Creating subject-based channels where consumers and producers can appear in any order
+- **Shared observables**: Automatic cleanup of grouped observables when all subscribers disconnect
+- **Resource pooling**: Sharing expensive resources (database connections, file handles) with automatic disposal
+
+Similar to RabbitMQ exchange declarations, RefCountTable operations are **idempotent** - both consumers and producers can request the same key, and the resource is created once then shared.
+
+#### Message Hub Example
+
+A common use case is creating a subject-based message hub where consumers can subscribe before producers start publishing:
+
+```csharp
+// Create a hub of message channels (subjects) indexed by topic
+var messageHub = RefCountTable.Create<string, ISubject<string>>(async (topic, ct) =>
+{
+    Console.WriteLine($"Creating channel for topic: {topic}");
+    var subject = Subject.Create<string>();
+    
+    return new RefCountTable.Entry<ISubject<string>>
+    {
+        Value = subject,
+        Disposable = AsyncDisposable.Create(async () =>
+        {
+            await subject.OnCompletedAsync(Result.Success);
+            Console.WriteLine($"Channel '{topic}' cleaned up - all references disposed");
+        })
+    };
+});
+```
+
+#### Consumer Before Producer (Idempotent Operations)
+
+```csharp
+// Consumer appears BEFORE producer - this is fine!
+await using (var consumerRef = await messageHub.GetOrCreateAsync("orders", CancellationToken.None))
+{
+    // Subscribe to messages
+    await using var subscription = await consumerRef.Value.Values.SubscribeAsync(
+        async (msg, ct) => Console.WriteLine($"Received: {msg}")
+    );
+    
+    // Producer appears later and gets the SAME subject
+    await using (var producerRef = await messageHub.GetOrCreateAsync("orders", CancellationToken.None))
+    {
+        // Same subject instance
+        Debug.Assert(consumerRef.Value == producerRef.Value);
+        
+        // Publish messages
+        await producerRef.Value.OnNextAsync("Order #1", CancellationToken.None);
+        await producerRef.Value.OnNextAsync("Order #2", CancellationToken.None);
+        
+        // Output:
+        // Received: Order #1
+        // Received: Order #2
+        
+    } // Producer reference disposed - subject still alive (consumer ref exists)
+    
+} // Last reference disposed - triggers cleanup
+// Output: Channel 'orders' cleaned up - all references disposed
+```
+
+#### Preventing Memory Leaks with Multiple Consumers/Producers
+
+```csharp
+// Multiple consumers and producers for different topics
+var hub = RefCountTable.Create<string, ISubject<int>>(async (topic, ct) =>
+{
+    var subject = Subject.Create<int>();
+    return new RefCountTable.Entry<ISubject<int>>
+    {
+        Value = subject,
+        Disposable = AsyncDisposable.Create(async () =>
+        {
+            await subject.OnCompletedAsync(Result.Success);
+            Console.WriteLine($"Topic '{topic}' disposed");
+        })
+    };
+});
+
+// Topic "A" - 2 consumers, 1 producer
+var consumerA1 = await hub.GetOrCreateAsync("A", CancellationToken.None);
+var consumerA2 = await hub.GetOrCreateAsync("A", CancellationToken.None);
+var producerA = await hub.GetOrCreateAsync("A", CancellationToken.None);
+
+// Topic "B" - 1 consumer, 1 producer  
+var consumerB = await hub.GetOrCreateAsync("B", CancellationToken.None);
+var producerB = await hub.GetOrCreateAsync("B", CancellationToken.None);
+
+// All references to same topic share the same subject
+Debug.Assert(consumerA1.Value == consumerA2.Value);
+Debug.Assert(consumerA1.Value == producerA.Value);
+
+// Cleanup topic A (all 3 references must be disposed)
+await consumerA1.DisposeAsync();  // 2 references remain for topic A
+await producerA.DisposeAsync();   // 1 reference remains for topic A
+await consumerA2.DisposeAsync();  // Last reference - triggers cleanup
+// Output: Topic 'A' disposed
+
+// Topic B is still active
+await producerB.Value.OnNextAsync(42, CancellationToken.None);
+
+// Cleanup topic B
+await consumerB.DisposeAsync();   // 1 reference remains
+await producerB.DisposeAsync();   // Last reference - triggers cleanup
+// Output: Topic 'B' disposed
+
+// No memory leaks - all subjects are properly cleaned up when no longer referenced
+```
+
+#### Reference Counting Behavior
+
+- **First request**: Creates the resource using the factory function (idempotent - consumer or producer can be first)
+- **Subsequent requests**: Returns references to the existing resource
+- **Last disposal**: Automatically disposes the resource when all references are disposed (prevents memory leaks)
+- **Concurrent safety**: Thread-safe for concurrent access
+- **Cancellation support**: Factory function receives a `CancellationToken` for proper async cancellation
 
 ### Stateless Subjects
 
