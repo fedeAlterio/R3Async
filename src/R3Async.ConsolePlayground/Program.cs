@@ -1,30 +1,25 @@
-﻿using System.Threading.Channels;
+﻿
+
 using R3Async;
 using R3Async.Subjects;
+var s = Subject.Create<int>();
+var b = from a in s.Values
+        group a by a into g 
+        select g.FirstOrDefaultAsync();
+var subscription = await s.Values
+ .GroupBy(x => x, static x => Subject.Create<int>())
+ .Select(g => g.Take(1)
+               .Do(x => Console.WriteLine(x))
+               .OnDispose(() => Console.WriteLine("Finished")))
+ .Merge()
+ .SubscribeAsync();
 
-var subjectHub = ConnectionHub.Create(static (string key) => Subject.Create<string>());
+await s.OnNextAsync(1, default);
+await s.OnNextAsync(2, default);
+await s.OnNextAsync(2, default);
+await s.OnNextAsync(3, default);
+await s.OnNextAsync(4, default);
 
-var producer = Task.Run(async () =>
-{
-    await Task.Delay(2000);
-    await using var connection = await subjectHub.GetOrCreateConnectionAsync("myKey", CancellationToken.None);
-    for (var i = 0; i < 3; i++)
-    {
-        await connection.Value.OnNextAsync($"Message {i}", CancellationToken.None);
-    }
-
-    await connection.Value.OnCompletedAsync(Result.Success);
-});
-
-var consumer = Task.Run(async () =>
-{
-    await using var connection = await subjectHub.GetOrCreateConnectionAsync("myKey", CancellationToken.None);
-    await foreach (var message in connection.Value.Values.ToAsyncEnumerable(static () => Channel.CreateUnbounded<string>()))
-    {
-        Console.WriteLine($"Received: {message}");
-    }
-});
-
-await Task.WhenAll(producer, consumer);
+await subscription.DisposeAsync();
 
 Console.ReadLine();
