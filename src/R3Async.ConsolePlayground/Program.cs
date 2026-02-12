@@ -1,19 +1,25 @@
 ﻿
 
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using R3Async;
+using R3Async.Subjects;
+var s = Subject.Create<int>();
+var b = from a in s.Values
+        group a by a into g 
+        select g.FirstOrDefaultAsync();
+var subscription = await s.Values
+ .GroupBy(x => x, static x => Subject.Create<int>())
+ .Select(g => g.Take(1)
+               .Do(x => Console.WriteLine(x))
+               .OnDispose(() => Console.WriteLine("Finished")))
+ .Merge()
+ .SubscribeAsync();
 
-var source = new Subject<int>();
-var other = new Subject<string>();
+await s.OnNextAsync(1, default);
+await s.OnNextAsync(2, default);
+await s.OnNextAsync(2, default);
+await s.OnNextAsync(3, default);
+await s.OnNextAsync(4, default);
 
-var takeUntil = source.TakeUntil(other);
-
-using var subscription = takeUntil.Subscribe(x => Console.WriteLine(x),
-                                                   ex => { },
-                                                   () => Console.WriteLine("completed"));
-
-source.OnNext(1);
-other.OnCompleted();
-source.OnNext(2);
+await subscription.DisposeAsync();
 
 Console.ReadLine();
