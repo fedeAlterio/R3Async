@@ -8,25 +8,34 @@ namespace Playground.ServiceA;
 
 public class AppHub(IChatService chatService) : Hub
 {
-    public async IAsyncEnumerable<ChatMessage> JoinRoom(ChatRoomId roomId, string user, IAsyncEnumerable<ChatMessage> messages, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public async IAsyncEnumerable<ChatMessage> GetChatMessages(ChatRoomId roomId, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await using var chatRef = await chatService.GetOrCreateChatRoom(roomId, cancellationToken);
-        var chat = chatRef.Value;
-        var channel = Channel.CreateUnbounded<ChatMessage>();
-        
-        await using var chatToChannelPipe = await chat.Values.PipeAsync(channel.Writer, cancellationToken: cancellationToken);
-        await chat.OnNextAsync(new ChatMessage(user, $"{user} joined the room"), cancellationToken);
+        var chatMessages = chatRef.Value;
+        await foreach (var message in chatMessages.Values
+                                          .ToAsyncEnumerable(static () => Channel.CreateUnbounded<ChatMessage>())
+                                          .WithCancellation(cancellationToken))
+        {
+            yield return message;
+        }
+    }
+
+    public async Task JoinRoom(ChatRoomId roomId, string user, IAsyncEnumerable<ChatMessage> messages)
+    {
+        var cancellationToken = Context.ConnectionAborted;
+        await using var chatRef = await chatService.GetOrCreateChatRoom(roomId, cancellationToken);
+        var chatMessages = chatRef.Value;
+        await chatMessages.OnNextAsync(new ChatMessage(user, $"{user} joined the room"), cancellationToken);
         try
         {
-            await using var messagesToChatPipe = await messages.ToAsyncObservable().PipeAsync(chat);
-            await foreach (var message in channel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var message in messages.WithCancellation(cancellationToken))
             {
-                yield return message;
+                await chatMessages.OnNextAsync(message, cancellationToken);
             }
         }
         finally
         {
-            await chat.OnNextAsync(new ChatMessage(user, $"{user} left the room"), cancellationToken);
+            await chatMessages.OnNextAsync(new ChatMessage(user, $"{user} left the room"), cancellationToken);
         }
     }
 }

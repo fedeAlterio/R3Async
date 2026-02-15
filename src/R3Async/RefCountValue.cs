@@ -1,4 +1,5 @@
-﻿using System;
+﻿using R3Async.Internals;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -6,77 +7,66 @@ namespace R3Async;
 
 public class RefCountValue<T>(Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
 {
-    int _refCount;
-    AsyncDisposableValue<T> _entry;
-    TaskCompletionSource<object?>? _tcs;
+    readonly AsyncGate _gate = new();
 
+    Connection? _connection;
     public async ValueTask<IAsyncDisposableReference<T>> GetAsync(CancellationToken cancellationToken)
     {
-        await EnsureValueExistsAsync(cancellationToken);
-        Interlocked.Increment(ref _refCount);
-        
-        return new Reference(this);
-    }
-
-    async ValueTask EnsureValueExistsAsync(CancellationToken cancellationToken)
-    {
-        var tcs = Volatile.Read(ref _tcs);
-        if (tcs is not null)
+        using (await _gate.LockAsync())
         {
-            await tcs.Task;
-            return;
-        }
+            while (true)
+            {
+                var connection = _connection;
 
-        var newTcs = new TaskCompletionSource<object?>();
-        tcs = Interlocked.CompareExchange(ref _tcs, newTcs, null);
-        if (tcs is not null)
-        {
-            await tcs.Task;
-            return;
-        }
-
-        await CreateValueAsync(newTcs, cancellationToken);
-    }
-
-    async ValueTask CreateValueAsync(TaskCompletionSource<object?> tcs, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var value = await valueFactory(cancellationToken);
-            _entry = value;
-            tcs.TrySetResult(null);
-        }
-        catch (Exception e)
-        {
-            Volatile.Write(ref _tcs, null);
-            tcs.TrySetException(e);
-            throw;
+                if (connection is null)
+                {
+                    connection = new Connection(this, valueFactory);
+                    _connection = connection;
+                }
+                await connection.IncrementRefCount(cancellationToken);
+                if (_connection == connection) return new Reference(connection);
+            }
         }
     }
+    internal sealed class Connection(RefCountValue<T> parent, Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
 
-    async ValueTask DisposeReferenceAsync()
     {
-        if(Interlocked.Decrement(ref _refCount) == 0)
+        int _refCount;
+        public async ValueTask DecrementRefCount()
         {
-            await _entry.Disposable.DisposeAsync();
+            using (await parent._gate.LockAsync())
+            {
+                if (--_refCount == 0)
+                {
+                    parent._connection = null;
+                    await Entry!.Value.Disposable.DisposeAsync();
+                }
+            }
         }
+
+        public async ValueTask IncrementRefCount(CancellationToken cancellationToken)
+        {
+            _refCount++;
+            Entry ??= await valueFactory(cancellationToken);
+        }
+
+        public AsyncDisposableValue<T>? Entry { get; private set; }
     }
 
     public sealed class Reference : IAsyncDisposableReference<T>
     {
         int _disposed;
-        readonly RefCountValue<T> _parent;
-
-        internal Reference(RefCountValue<T> parent) => _parent = parent;
+        readonly Connection _connection;
+        internal Reference(Connection connection) => _connection = connection;
 
         public async ValueTask DisposeAsync()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
-            await _parent.DisposeReferenceAsync();
+            await _connection.DecrementRefCount();
         }
 
         public T Value => Volatile.Read(ref _disposed) == 1
-            ? throw new ObjectDisposedException($"{nameof(RefCountValue<T>)}.{nameof(Reference)}")
-            : _parent._entry.Value;
+            ? throw new ObjectDisposedException($"{nameof(RefCountTable<,>)}.{nameof(Reference)}")
+            : _connection.Entry!.Value.Value;
     }
 }
