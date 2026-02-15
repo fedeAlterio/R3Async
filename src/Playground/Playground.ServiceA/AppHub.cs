@@ -2,6 +2,7 @@
 using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR;
 using Playground.Common;
+using Playground.ServiceA.Services;
 using R3Async;
 
 namespace Playground.ServiceA;

@@ -26,7 +26,7 @@ public static partial class AsyncObservable
                                               [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var channel = channelFactory();
-            await @this.PipeAsync(channel.Writer, onErrorResume, cancellationToken);
+            await using var pipe = await @this.PipeAsync(channel.Writer, onErrorResume, cancellationToken);
             await foreach (var x in channel.Reader.ReadAllAsync(cancellationToken))
             {
                 yield return x;

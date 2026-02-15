@@ -30,7 +30,7 @@ public sealed class SignalRHubClient
                 Disposable = AsyncDisposable.Create(async () =>
                 {
                     await connection.DisposeAsync();
-                    _isConnected.Value = false;
+                    _isConnected.Value = false; 
                 })
             };
         });

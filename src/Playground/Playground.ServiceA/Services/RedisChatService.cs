@@ -3,7 +3,7 @@ using R3Async;
 using R3Async.Subjects;
 using StackExchange.Redis;
 
-namespace Playground.ServiceA;
+namespace Playground.ServiceA.Services;
 
 public class RedisChatService : IChatService
 {
