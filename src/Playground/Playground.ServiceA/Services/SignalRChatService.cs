@@ -7,7 +7,7 @@ namespace Playground.ServiceA.Services;
 
 public sealed class SignalRChatService : IChatService
 {
-    readonly RefCountedLazy<HubConnection> _sharedConnection;
+    readonly RefCountLazy<HubConnection> _sharedConnection;
 
     public SignalRChatService(IConfiguration configuration)
     {

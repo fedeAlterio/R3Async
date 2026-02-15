@@ -12,7 +12,7 @@ namespace Playground.Avalonia;
 
 public sealed class SignalRHubClient
 {
-    readonly RefCountedLazy<HubConnection> _sharedConnection;
+    readonly RefCountLazy<HubConnection> _sharedConnection;
 
     public SignalRHubClient()
     {
