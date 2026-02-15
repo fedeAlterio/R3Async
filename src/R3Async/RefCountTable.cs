@@ -8,24 +8,18 @@ namespace R3Async;
 
 public static class RefCountTable
 {
-    public readonly record struct Entry<T>
-    {
-        public T Value { get; init; }
-        public IAsyncDisposable Disposable { get; init; }
-    }
-
-    public static RefCountTable<TKey, TValue> Create<TKey, TValue>(Func<TKey, CancellationToken, Task<Entry<TValue>>> valueFactory) where TKey : notnull
+    public static RefCountTable<TKey, TValue> Create<TKey, TValue>(Func<TKey, CancellationToken, Task<AsyncDisposableValue<TValue>>> valueFactory) where TKey : notnull
     {
         return new RefCountTable<TKey, TValue>(valueFactory);
     }
 }
 
-public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<RefCountTable.Entry<TValue>>> valueFactory) where TKey : notnull
+public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<AsyncDisposableValue<TValue>>> valueFactory) where TKey : notnull
 {
-    readonly Func<TKey, CancellationToken, Task<RefCountTable.Entry<TValue>>> _valueFactory = valueFactory ?? throw new ArgumentNullException(nameof(valueFactory));
+    readonly Func<TKey, CancellationToken, Task<AsyncDisposableValue<TValue>>> _valueFactory = valueFactory ?? throw new ArgumentNullException(nameof(valueFactory));
     readonly ConcurrentDictionary<TKey, Connection> _subjectsByKey = new();
 
-    public async ValueTask<Reference> GetOrCreateAsync(TKey key, CancellationToken cancellationToken)
+    public async ValueTask<IAsyncDisposableReference<TValue>> GetOrCreateAsync(TKey key, CancellationToken cancellationToken)
     {
         do
         {
@@ -57,7 +51,7 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<RefC
         } while (true);
     }
 
-    internal sealed class Connection(RefCountTable<TKey, TValue> parent, TKey key, Func<TKey, CancellationToken, Task<RefCountTable.Entry<TValue>>> valueFactory)
+    internal sealed class Connection(RefCountTable<TKey, TValue> parent, TKey key, Func<TKey, CancellationToken, Task<AsyncDisposableValue<TValue>>> valueFactory)
     
     {
         public readonly object Gate = new();
@@ -106,7 +100,7 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<RefC
             await CreateValueAsync(newTcs, cancellationToken);
         }
 
-        public RefCountTable.Entry<TValue> Entry { get; set; }
+        public AsyncDisposableValue<TValue> Entry { get; set; }
 
         async ValueTask CreateValueAsync(TaskCompletionSource<object?> tcs, CancellationToken cancellationToken)
         {
@@ -125,7 +119,7 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<RefC
         }
     }
 
-    public sealed class Reference
+    public sealed class Reference : IAsyncDisposableReference<TValue>
     {
         int _disposed;
         readonly Connection _connection;

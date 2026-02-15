@@ -1,0 +1,6 @@
+@Playground.ServiceA_HostAddress = http://localhost:5062
+
+GET {{Playground.ServiceA_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

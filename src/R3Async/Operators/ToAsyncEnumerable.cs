@@ -26,18 +26,7 @@ public static partial class AsyncObservable
                                               [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var channel = channelFactory();
-            var onErrorResumeAsync = onErrorResume ?? ((e, _) =>
-            {
-                channel.Writer.Complete(e);
-                return default;
-            });
-
-            await using var subscription = await @this.SubscribeAsync(channel.Writer.WriteAsync, onErrorResumeAsync, result =>
-            {
-                channel.Writer.Complete(result.Exception);
-                return default;
-            }, cancellationToken);
-
+            await @this.PipeAsync(channel.Writer, onErrorResume, cancellationToken);
             await foreach (var x in channel.Reader.ReadAllAsync(cancellationToken))
             {
                 yield return x;
