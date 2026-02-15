@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Playground.Avalonia"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Playground.Avalonia.MainWindow"
+        x:DataType="avalonia:MainWindowViewModel"
+        Title="Chat - Playground.Avalonia">
+    <TabControl x:Name="MainTabControl">
+        <!-- Chat Tab -->
+        <TabItem Header="Chat">
+            <Grid RowDefinitions="*,Auto" DataContext="{Binding ChatViewModel}">
+                <!-- Chat Messages Area -->
+                <ListBox Grid.Row="0" 
+                         ItemsSource="{Binding AllChatMessages}"
+                         Margin="10">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="5">
+                                <TextBlock Text="{Binding From}" 
+                                           FontWeight="Bold" 
+                                           FontSize="12"/>
+                                <TextBlock Text="{Binding Message}" 
+                                           FontSize="14"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Message Input Area -->
+                <Grid Grid.Row="1" 
+                      ColumnDefinitions="*,Auto"
+                      Margin="10">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding DraftMessage.Value}"
+                             Watermark="Type a message..."
+                             Margin="0,0,10,0"/>
+                    <Button Grid.Column="1" 
+                            Content="Send"
+                            Command="{Binding SendCommand}"
+                            Width="80"/>
+                </Grid>
+            </Grid>
+        </TabItem>
+
+        <!-- User Settings Tab -->
+        <TabItem Header="User Settings">
+            <StackPanel Margin="20" DataContext="{Binding UserSettingsViewModel}">
+                <TextBlock Text="User Name:" 
+                           FontWeight="Bold" 
+                           Margin="0,0,0,5"/>
+                <TextBox Text="{Binding UserName.Value, UpdateSourceTrigger=LostFocus}" 
+                         Watermark="Enter your name..."
+                         Width="300"
+                         HorizontalAlignment="Left"/>
+            </StackPanel>
+        </TabItem>
+    </TabControl>
+</Window>

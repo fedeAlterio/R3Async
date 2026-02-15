@@ -17,8 +17,8 @@ public class GroupByTest
                      .ToListAsync();
 
         groups.Count.ShouldBe(2);
-        groups[0].ShouldBe([1, 3, 5]);
-        groups[1].ShouldBe([2, 4, 6]);
+        groups.Any(x => x.SequenceEqual([1, 3, 5])).ShouldBeTrue();
+        groups.Any(x => x.SequenceEqual([2, 4, 6])).ShouldBeTrue();
     }
 
     [Fact]

@@ -9,7 +9,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_GetOrCreateConnection_CreatesNewSubjectForNewKey()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>()
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -23,7 +23,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_GetOrCreateConnection_ReturnsSameSubjectForSameKey()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -38,7 +38,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_GetOrCreateConnection_CreatesDifferentSubjectsForDifferentKeys()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -53,7 +53,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_DisposeConnection_RemovesSubjectWhenAllConnectionsDisposed()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -74,7 +74,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_MultipleConnections_SharesSameSubject()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -110,7 +110,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_RefCounting_KeepsSubjectAliveWhileConnectionsExist()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -138,7 +138,7 @@ public class RefCountTableTests
         var hub = new RefCountTable<string, ISubject<int>>((key, ct) =>
         {
             capturedKeys.Add(key);
-            return Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+            return Task.FromResult(new AsyncDisposableValue<ISubject<int>>
             {
                 Value = Subject.Create<int>(),
                 Disposable = AsyncDisposable.Empty
@@ -155,7 +155,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_DisposeConnection_MultipleTimes_DoesNotThrow()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -171,7 +171,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_AccessDisposedConnection_ThrowsObjectDisposedException()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -201,7 +201,7 @@ public class RefCountTableTests
             callCount++;
             if (callCount == 1)
                 throw new InvalidOperationException("First call fails");
-            return Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+            return Task.FromResult(new AsyncDisposableValue<ISubject<int>>
             {
                 Value = Subject.Create<int>(),
                 Disposable = AsyncDisposable.Empty
@@ -221,7 +221,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_CancellationToken_ThrowsOperationCanceledException()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -236,7 +236,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_BehaviorSubject_LateSubscriberReceivesLastValue()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.CreateBehavior(0),
             Disposable = AsyncDisposable.Empty
@@ -257,7 +257,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_IntKeys_WorksCorrectly()
     {
-        var hub = new RefCountTable<int, ISubject<string>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<string>>
+        var hub = new RefCountTable<int, ISubject<string>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<string>>
         {
             Value = Subject.Create<string>(),
             Disposable = AsyncDisposable.Empty
@@ -274,7 +274,7 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_ComplexKey_WorksCorrectly()
     {
-        var hub = new RefCountTable<(string, int), ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<(string, int), ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
@@ -291,12 +291,12 @@ public class RefCountTableTests
     [Fact]
     public async Task ConnectionHub_ConcurrentAccess_AllConnectionsShareSameSubject()
     {
-        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new RefCountTable.Entry<ISubject<int>>
+        var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>
         {
             Value = Subject.Create<int>(),
             Disposable = AsyncDisposable.Empty
         }));
-        var connections = new List<RefCountTable<string, ISubject<int>>.Reference>();
+        var connections = new List<IAsyncDisposableReference<ISubject<int>>>();
 
         // Create 10 connections concurrently
         var tasks = Enumerable.Range(0, 10).Select(async i =>

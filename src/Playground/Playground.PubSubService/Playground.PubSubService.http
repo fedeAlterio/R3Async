@@ -1,0 +1,6 @@
+@Playground.PubSubService_HostAddress = http://localhost:5189
+
+GET {{Playground.PubSubService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
