@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Playground.Common;
 using R3;
 using SignalsDotnet;
@@ -54,7 +53,7 @@ public class ChatViewModel
             {
                 AllChatMessages.Add(message);
             }
-        });
+        }, ConcurrentChangeStrategy.CancelCurrent);
 
         computedFactory.AsyncEffect(async token =>
         {
@@ -76,16 +75,4 @@ public class ChatViewModel
 public class UserSettingsViewModel
 {
     public Signal<string> UserName { get; } = new("AvaloniaUser");
-}
-
-file static class Ex
-{
-    public static Observable<bool> LoadedObservable(this Control control)
-    {
-        return Observable.FromEventHandler<RoutedEventArgs>(x => control.Loaded += x, x => control.Loaded -= x)
-                         .Merge(Observable.FromEventHandler<RoutedEventArgs>(x => control.Unloaded += x, x => control.Unloaded -= x))
-                         .Select(_ => control.IsLoaded)
-                         .Prepend(control.IsLoaded)
-                         .DistinctUntilChanged();
-    }
 }

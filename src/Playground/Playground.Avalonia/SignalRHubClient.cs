@@ -12,7 +12,7 @@ namespace Playground.Avalonia;
 
 public sealed class SignalRHubClient
 {
-    readonly RefCountValue<HubConnection> _sharedConnection;
+    readonly RefCountedLazy<HubConnection> _sharedConnection;
 
     public SignalRHubClient()
     {
@@ -50,10 +50,9 @@ public sealed class SignalRHubClient
         }
     }
 
-    public async ValueTask<Unit> JoinRoom(ChatRoomId roomId, string user, IAsyncEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default)
+    public async ValueTask JoinRoom(ChatRoomId roomId, string user, IAsyncEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default)
     {
         await using var hubRef = await _sharedConnection.GetAsync(cancellationToken);
         await hubRef.Value.InvokeAsync("JoinRoom", roomId, user, messages, cancellationToken: cancellationToken);
-        return Unit.Default;
     }
 }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace R3Async;
 
-public class RefCountValue<T>(Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
+public class RefCountedLazy<T>(Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
 {
     readonly AsyncGate _gate = new();
 
@@ -28,7 +28,7 @@ public class RefCountValue<T>(Func<CancellationToken, ValueTask<AsyncDisposableV
             }
         }
     }
-    internal sealed class Connection(RefCountValue<T> parent, Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
+    internal sealed class Connection(RefCountedLazy<T> parent, Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
 
     {
         int _refCount;

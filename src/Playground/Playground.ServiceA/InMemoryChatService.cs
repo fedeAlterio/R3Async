@@ -9,11 +9,11 @@ public interface IChatService
     ValueTask<IAsyncDisposableReference<ISubject<ChatMessage>>> GetOrCreateChatRoom(ChatRoomId id, CancellationToken cancellationToken);
 }
 
-public class ChatService : IChatService
+public class InMemoryChatService : IChatService
 {
     readonly RefCountTable<ChatRoomId, ISubject<ChatMessage>> _chatByRoom;
 
-    public ChatService()
+    public InMemoryChatService()
     {
         _chatByRoom = new(async (roomId, cancellationToken) =>
         {
