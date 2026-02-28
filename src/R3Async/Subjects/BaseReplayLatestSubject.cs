@@ -46,18 +46,18 @@ public abstract class BaseReplayLatestSubject<T>(Optional<T> startValue) : Async
     }
     protected abstract ValueTask OnErrorResumeAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, Exception error, CancellationToken cancellationToken);
 
-    public ValueTask OnCompletedAsync(Result result)
+    public async ValueTask OnCompletedAsync(Result result)
     {
         ImmutableList<AsyncObserver<T>>? observers;
-        lock (_gate)
+        using (await _gate.LockAsync())
         {
-            if (_result is not null) return default;
+            if (_result is not null) return;
             _result = result;
             observers = _observers;
             _observers = [];
         }
 
-        return OnCompletedAsyncCore(observers, result);
+        await OnCompletedAsyncCore(observers, result);
     }
 
     protected abstract ValueTask OnCompletedAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, Result result);
