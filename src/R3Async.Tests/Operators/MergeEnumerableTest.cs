@@ -52,6 +52,46 @@ public class MergeEnumerableTest
     }
 
     [Fact]
+    public async Task MergeEnumerableSync_Basic()
+    {
+        var tcs1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var obs1 = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            await observer.OnNextAsync(1, token);
+            await observer.OnNextAsync(2, token);
+            await observer.OnCompletedAsync(Result.Success);
+            tcs1.TrySetResult();
+            return AsyncDisposable.Empty;
+        });
+
+        var obs2 = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            await observer.OnNextAsync(3, token);
+            await observer.OnCompletedAsync(Result.Success);
+            tcs2.TrySetResult();
+            return AsyncDisposable.Empty;
+        });
+
+        var merge = new[] { obs1, obs2 }.Merge();
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await merge.SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result.IsSuccess),
+            CancellationToken.None);
+
+        await tcs1.Task;
+        await tcs2.Task;
+        await completedTcs.Task;
+
+        results.OrderBy(x => x).ShouldBe(new[] { 1, 2, 3 });
+    }
+
+    [Fact]
     public async Task MergeEnumerable_Empty()
     {
         var merge = new AsyncObservable<int>[0].Merge();

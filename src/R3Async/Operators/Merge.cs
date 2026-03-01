@@ -242,7 +242,8 @@ public static partial class AsyncObservable
             readonly TaskCompletionSource<bool> _subscriptionFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
             readonly AsyncLocal<bool> _reentrant = new();
             int _active;
-            int _disposed;
+            bool _enumerationCompleted;
+            bool _disposed;
             readonly AsyncObserver<T> _observer;
 
             public MergeEnumerableSubscription(AsyncObserver<T> observer, IEnumerable<AsyncObservable<T>> sources)
@@ -261,7 +262,11 @@ public static partial class AsyncObservable
                     {
                         foreach (var src in _sources)
                         {
-                            Interlocked.Increment(ref _active);
+                            _disposedCancellationToken.ThrowIfCancellationRequested();
+                            lock (_onSomethingGate)
+                            {
+                                _active++;
+                            }
 
                             var innerObserver = new InnerAsyncObserver(this);
                             await _innerDisposables.AddAsync(innerObserver);
@@ -280,7 +285,14 @@ public static partial class AsyncObservable
                             }
                         }
 
-                        if (Volatile.Read(ref _active) == 0)
+                        bool shouldComplete;
+                        lock (_onSomethingGate)
+                        {
+                            _enumerationCompleted = true;
+                            shouldComplete = _active == 0;
+                        }
+
+                        if (shouldComplete)
                         {
                             await CompleteAsync(Result.Success);
                         }
@@ -305,7 +317,7 @@ public static partial class AsyncObservable
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, token);
                 using (await _onSomethingGate.LockAsync())
                 {
-                    if (_disposed == 1) return;
+                    if (_disposed) return;
                     await _observer.OnNextAsync(value, linked.Token);
                 }
             }
@@ -315,7 +327,7 @@ public static partial class AsyncObservable
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, token);
                 using (await _onSomethingGate.LockAsync())
                 {
-                    if (_disposed == 1) return;
+                    if (_disposed) return;
                     await _observer.OnErrorResumeAsync(ex, linked.Token);
                 }
             }
@@ -327,21 +339,28 @@ public static partial class AsyncObservable
                     return CompleteAsync(result);
                 }
 
-                if (Interlocked.Decrement(ref _active) == 0)
+                bool shouldComplete;
+                lock (_onSomethingGate)
                 {
-                    return CompleteAsync(Result.Success);
+                    _active--;
+                    shouldComplete = _active == 0 && _enumerationCompleted;
                 }
 
-                return default;
+                return shouldComplete ? CompleteAsync(Result.Success) : default;
             }
 
             async ValueTask CompleteAsync(Result? result)
             {
-                if (Interlocked.Exchange(ref _disposed, 1) == 1)
+                using (await _onSomethingGate.LockAsync())
                 {
-                    if (result?.Exception is not null and var ex)
-                        UnhandledExceptionHandler.OnUnhandledException(ex);
-                    return;
+                    if (_disposed)
+                    {
+                        if (result?.Exception is not null and var ex)
+                            UnhandledExceptionHandler.OnUnhandledException(ex);
+                        return;
+                    }
+
+                    _disposed = true;
                 }
 
                 _cts.Cancel();
