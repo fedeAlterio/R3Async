@@ -75,11 +75,14 @@ public static partial class AsyncObservable
                 var subscription = await connection.Subject.Values.SubscribeAsync(observer.Wrap(), cancellationToken);
                 return AsyncDisposable.Create(async () =>
                 {
-                    var refCount = --_refCount;
-                    await subscription.DisposeAsync();
-                    if (_parent._config.ResetOnRefCountZero && refCount == 0 && !connection.Completed)
+                    using (await _gate.LockAsync())
                     {
-                        await DisposeConnection();
+                        var refCount = --_refCount;
+                        await subscription.DisposeAsync();
+                        if (_parent._config.ResetOnRefCountZero && refCount == 0 && !connection.Completed)
+                        {
+                            await DisposeConnection();
+                        }
                     }
                 });
             }
