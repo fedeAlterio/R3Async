@@ -86,7 +86,7 @@ public class RefCountTest
     {
         var subject = Subject.Create<int>();
 
-        var refCounted = subject.Values.StatelessPublish(10).RefCount();
+        var refCounted = subject.Values.Share(10, ShareConfig.ResetOnCompletionAndRefCountZero);
 
         var results1 = new List<int>();
 
@@ -95,7 +95,6 @@ public class RefCountTest
             await subject.OnNextAsync(20, CancellationToken.None);
         }
 
-        // refcount is now 0, connection disposed; stateless behavior subject should reset to initial value
         var results2 = new List<int>();
         await using var sub2 = await refCounted.SubscribeAsync(async (x, token) => results2.Add(x), CancellationToken.None);
 

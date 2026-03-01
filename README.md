@@ -554,7 +554,7 @@ var multicast5 = source.Publish(initialValue: 0, new BehaviorSubjectCreationOpti
 
 The `RefCount` operator automatically manages connections to a `ConnectableAsyncObservable` based on the number of subscribers. When the first subscriber subscribes, it connects to the source. When the last subscriber unsubscribes, it disconnects.
 
-RefCount is particularly useful with stateless subjects to create observables that automatically reset when all observers unsubscribe.
+For an all-in-one operator that handles multicasting, reference counting, and automatic resetting, see the `Share` operator.
 
 ### GroupBy
 
@@ -701,27 +701,36 @@ await producerB.DisposeAsync();   // Last reference - triggers cleanup
 - **Concurrent safety**: Thread-safe for concurrent access
 - **Cancellation support**: Factory function receives a `CancellationToken` for proper async cancellation
 
-### Stateless Subjects
+### Share
 
-Stateless subjects are a variant of subjects that automatically reset their state when all observers unsubscribe. This is useful for creating reusable hot observables that can be "restarted" without creating a new instance.
-
-#### Stateless Subject vs Regular Subject
-
-- **Regular Subject**: Once completed, it stays completed. New subscribers immediately receive the completion notification.
-- **Stateless Subject**: Forgets completion when all observers unsubscribe. After reset, it acts as a fresh proxy that can receive and forward new values.
-
-
-#### Stateless BehaviorSubject vs Regular BehaviorSubject
-
-- **Regular BehaviorSubject**: Stores the latest value permanently.
-- **Stateless BehaviorSubject**: Returns to its original initial value when all observers unsubscribe.
-
-
-Stateless subjects are particularly useful with `RefCount` for creating auto-resetting multicast observables:
+The `Share` operator allows you to share a single subscription among multiple observers. It combines the functionality of `Publish()` and `RefCount()`, while using `ShareConfig` to configure exactly when the underlying subject should be cleared and the connection reset.
 
 ```csharp
-var source = Subject.Create<int>();
-var refCounted = source.Values.StatelessPublish(initialValue: 0).RefCount();
+public AsyncObservable<T> Share(ShareConfig? config = null)
+public AsyncObservable<T> Share(T startValue, ShareConfig? config = null)
+public AsyncObservable<T> Share(Func<ISubject<T>> connector, ShareConfig? config = null)
+```
+
+`ShareConfig` has options to reset the underlying connection depending on the state of the shared subscription:
+
+```csharp
+public sealed record ShareConfig
+{
+    // A preconfigured config instance with all properties set to true
+    public static ShareConfig ResetOnCompletionAndRefCountZero { get; }
+
+    public bool ResetOnErrorResult { get; init; }
+    public bool ResetOnSuccessResult { get; init; }
+    public bool ResetOnRefCountZero { get; init; }
+}
+```
+
+By default, an empty `ShareConfig` behaves exactly like `Publish().RefCount()`: when the observable completes or the final subscriber disconnects, subsequent subscribers merely receive completion results without the observable restarting.
+
+Using `ShareConfig` with `ResetOnRefCountZero` (or `ResetOnCompletionAndRefCountZero`) is especially useful for creating hot multicast observables that automatically restart back to their original state and re-open the source once all consumers leave.
+
+```csharp
+var refCounted = source.Share(startValue: 0, ShareConfig.ResetOnCompletionAndRefCountZero);
 
 // First subscription gets initial value and connects
 await using (await refCounted.SubscribeAsync(
@@ -729,8 +738,6 @@ await using (await refCounted.SubscribeAsync(
 ))
 {
     // Output: First: 0
-    await source.OnNextAsync(10, CancellationToken.None);
-    // Output: First: 10
 }
 // All observers unsubscribed - disconnects and resets to initial value
 
