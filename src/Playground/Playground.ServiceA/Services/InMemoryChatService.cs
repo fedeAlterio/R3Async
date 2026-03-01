@@ -14,7 +14,6 @@ public class InMemoryChatService : IChatService
         {
             var chat = Subject.Create<ChatMessage>(new SubjectCreationOptions
             {
-                IsStateless = false,
                 PublishingOption = PublishingOption.Concurrent
             });
 

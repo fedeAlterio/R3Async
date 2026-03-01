@@ -6,7 +6,7 @@ namespace R3Async.Tests.Subjects;
 
 public class SubjectTest
 {
-    static ISubject<int> Create(PublishingOption option) => Subject.Create<int>(new SubjectCreationOptions { PublishingOption = option, IsStateless = false});
+    static ISubject<int> Create(PublishingOption option) => Subject.Create<int>(new SubjectCreationOptions { PublishingOption = option});
 
     [Theory]
     [InlineData(PublishingOption.Serial)]
