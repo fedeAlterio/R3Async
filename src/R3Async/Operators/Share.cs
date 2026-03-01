@@ -12,6 +12,7 @@ public static partial class AsyncObservable
     {
         public AsyncObservable<T> Share(ShareConfig? config = null) => @this.Share(static () => Subject.Create<T>(),                       config);
         public AsyncObservable<T> Share(T startValue, ShareConfig? config = null) => @this.Share(() => Subject.CreateBehavior(startValue), config);
+        public AsyncObservable<T> ShareLatest(ShareConfig? config = null) => @this.Share(Subject.CreateReplayLatest<T>,                    config);
         public AsyncObservable<T> Share(Func<ISubject<T>> connector, ShareConfig? config = null)
         {
             if (@this is null)
