@@ -183,6 +183,9 @@ Transform and compose observable streams:
 - `Do` - Perform side effects
 - `Wrap` - Wrap observer calls
 
+#### Timing (Throttle in classic Rx.NET)
+- `Debounce` - Suppress values followed by another value within a time window; only emit after a quiet period
+
 #### Concurrency & Scheduling
 - `ObserveOn` - Control execution context for downstream operators
 
@@ -864,7 +867,7 @@ Note: `OperationCanceledException` is automatically ignored by the unhandled exc
 
 R3Async is currently under development and some features from R3 and Rx.NET are not yet implemented:
 
-- **Throttle / Debounce** - Time-based filtering operators
+- **Throttle**
 - **Zip** - Combine multiple observables pairwise
 - **Race (Amb)** - Return the first observable to emit
 - **Others..**
