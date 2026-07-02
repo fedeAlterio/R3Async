@@ -183,8 +183,11 @@ Transform and compose observable streams:
 - `Do` - Perform side effects
 - `Wrap` - Wrap observer calls
 
-#### Timing (Throttle in classic Rx.NET)
-- `Debounce` - Suppress values followed by another value within a time window; only emit after a quiet period
+#### Timing
+- `Debounce` - Suppress values followed by another value within a time window; only emit after a quiet period (Throttle in classic Rx.NET)
+- `ThrottleFirst` - Emit the first value of each time window and drop the rest
+- `ThrottleLast` - Emit only the latest value of each time window, when the window expires
+- `ThrottleFirstLast` - Emit the first value of each time window immediately, then the latest value when the window expires
 
 #### Concurrency & Scheduling
 - `ObserveOn` - Control execution context for downstream operators

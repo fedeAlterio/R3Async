@@ -105,7 +105,7 @@ public class ToAsyncEnumerableTest
                 // wait indefinitely until disposed; we don't use delays
                 try
                 {
-                    await Task.Delay(Timeout.Infinite, token);
+                    await TestHelpers.WaitForCancellationAsync(token);
                 }
                 catch (OperationCanceledException)
                 {

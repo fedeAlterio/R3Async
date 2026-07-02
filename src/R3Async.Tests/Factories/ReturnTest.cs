@@ -34,7 +34,7 @@ public class ReturnTest
         {
             try
             {
-                await Task.Delay(Timeout.Infinite, token);
+                await TestHelpers.WaitForCancellationAsync(token);
             }
             catch (OperationCanceledException)
             {

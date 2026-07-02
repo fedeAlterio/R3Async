@@ -157,7 +157,7 @@ public class SwitchTest
                 tcsStarted.TrySetResult();
                 try
                 {
-                    await Task.Delay(Timeout.Infinite, token);
+                    await TestHelpers.WaitForCancellationAsync(token);
                 }
                 catch (OperationCanceledException)
                 {

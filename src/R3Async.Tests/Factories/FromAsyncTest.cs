@@ -56,7 +56,7 @@ public class FromAsyncTest
         {
             try
             {
-                await Task.Delay(Timeout.Infinite, ct);
+                await TestHelpers.WaitForCancellationAsync(ct);
                 return 1;
             }
             catch (OperationCanceledException)
