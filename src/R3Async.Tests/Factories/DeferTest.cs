@@ -362,7 +362,7 @@ public class DeferTest
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deferred = AsyncObservable.Defer(async token =>
         {
-            await Task.Delay(10, token);
+            await Task.Yield();
             return AsyncObservable.Create<int>(async (observer, t) =>
             {
                 await observer.OnNextAsync(42, t);

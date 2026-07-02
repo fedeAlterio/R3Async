@@ -120,7 +120,7 @@ public class CatchTest
         {
             _ = Task.Run(async () =>
             {
-                await Task.Delay(1);
+                await Task.Yield();
                 await observer.OnCompletedAsync(Result.Failure(sourceFail));
             });
             return AsyncDisposable.Empty;

@@ -95,7 +95,6 @@ public class CreateTest
 
         var exception = await tcs.Task;
         exception.ShouldBe(expectedException);
-        await Task.Delay(100);
         results.ShouldBe(new[] { 1, 2 });
     }
 
@@ -480,7 +479,7 @@ public class CreateTest
                 onNextStarted.TrySetResult();
                 try
                 {
-                    await Task.Delay(Timeout.Infinite, token);
+                    await TestHelpers.WaitForCancellationAsync(token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -521,7 +520,7 @@ public class CreateTest
                 onNextStarted.TrySetResult();
                 try
                 {
-                    await Task.Delay(Timeout.Infinite, token);
+                    await TestHelpers.WaitForCancellationAsync(token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -564,7 +563,7 @@ public class CreateTest
                 onErrorResumeStarted.TrySetResult();
                 try
                 {
-                    await Task.Delay(Timeout.Infinite, token);
+                    await TestHelpers.WaitForCancellationAsync(token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -607,7 +606,7 @@ public class CreateTest
                 onErrorResumeStarted.TrySetResult();
                 try
                 {
-                    await Task.Delay(Timeout.Infinite, token);
+                    await TestHelpers.WaitForCancellationAsync(token);
                 }
                 catch (OperationCanceledException)
                 {
