@@ -870,7 +870,6 @@ Note: `OperationCanceledException` is automatically ignored by the unhandled exc
 
 R3Async is currently under development and some features from R3 and Rx.NET are not yet implemented:
 
-- **Throttle**
 - **Zip** - Combine multiple observables pairwise
 - **Race (Amb)** - Return the first observable to emit
 - **Others..**
