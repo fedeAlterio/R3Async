@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,17 +10,12 @@ internal abstract class TaskAsyncObserverBase<T, TTaskValue>(CancellationToken c
     readonly TaskCompletionSource<TTaskValue> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationToken _cancellationToken = cancellationToken;
 
-    public async ValueTask<TTaskValue> WaitValueAsync()
+    public async ValueTask<TTaskValue> WaitValueAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var _ = _cancellationToken.Register(static x =>
-            {
-                var @this = (TaskAsyncObserverBase<T, TTaskValue>)x!;
-                @this._tcs.TrySetException(new OperationCanceledException(@this._cancellationToken));
-            }, this);
-
-            return await _tcs.Task;
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken, cancellationToken);
+            return await _tcs.Task.WaitAsync(timeout ?? Timeout.InfiniteTimeSpan, linkedCts.Token);
         }
         finally
         {
@@ -51,5 +46,23 @@ internal abstract class TaskAsyncObserverBase<T, TTaskValue>(CancellationToken c
         {
             await DisposeAsync();
         }
+    }
+
+    protected override ValueTask DisposeAsyncCore()
+    {
+        _tcs.TrySetException(new OperationCanceledException("Underlying subscription disposed"));
+        return base.DisposeAsyncCore();
+    }
+}
+
+internal static class TaskAsyncObserverBaseEx
+{
+    public static async ValueTask<SubscriptionHandle<TValue>> ToSubscriptionAsyncHandleAsync<T, TValue>(
+        this AsyncObservable<T> source,
+        TaskAsyncObserverBase<T, TValue> observer,
+        CancellationToken cancellationToken)
+    {
+        var subscription = await source.SubscribeAsync(observer, cancellationToken);
+        return new SubscriptionHandle<TValue>(observer.WaitValueAsync, subscription);
     }
 }

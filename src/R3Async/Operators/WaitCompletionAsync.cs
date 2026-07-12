@@ -16,6 +16,9 @@ public static partial class AsyncObservable
         await observer.WaitValueAsync();
     }
 
+    public static ValueTask<SubscriptionHandle<object?>> SubscribeWaitCompletionAsync<T>(this AsyncObservable<T> @this, CancellationToken cancellationToken = default)
+        => @this.ToSubscriptionAsyncHandleAsync(new WaitCompletionAsyncObserver<T>(cancellationToken), cancellationToken);
+
     sealed class WaitCompletionAsyncObserver<T>(CancellationToken cancellationToken) : TaskAsyncObserverBase<T, object?>(cancellationToken)
     {
         protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)

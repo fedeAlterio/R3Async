@@ -16,6 +16,9 @@ public static partial class AsyncObservable
             _ = await @this.SubscribeAsync(observer, cancellationToken);
             return await observer.WaitValueAsync();
         }
+
+        public ValueTask<SubscriptionHandle<List<T>>> SubscribeToListAsync(CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new ToListAsyncObserver<T>(cancellationToken), cancellationToken);
     }
 
     sealed class ToListAsyncObserver<T>(CancellationToken cancellationToken) : TaskAsyncObserverBase<T, List<T>>(cancellationToken)

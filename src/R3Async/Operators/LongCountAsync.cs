@@ -18,6 +18,12 @@ public static partial class AsyncObservable
 
         public ValueTask<long> LongCountAsync(CancellationToken cancellationToken = default)
             => @this.LongCountAsync(null, cancellationToken);
+
+        public ValueTask<SubscriptionHandle<long>> SubscribeLongCountAsync(Func<T, bool>? predicate, CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new LongCountAsyncObserver<T>(predicate, cancellationToken), cancellationToken);
+
+        public ValueTask<SubscriptionHandle<long>> SubscribeLongCountAsync(CancellationToken cancellationToken = default)
+            => @this.SubscribeLongCountAsync(null, cancellationToken);
     }
 
     sealed class LongCountAsyncObserver<T>(Func<T, bool>? predicate, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, long>(cancellationToken)

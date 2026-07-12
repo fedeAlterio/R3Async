@@ -18,6 +18,12 @@ public static partial class AsyncObservable
 
         public ValueTask<int> CountAsync(CancellationToken cancellationToken = default)
             => @this.CountAsync(null, cancellationToken);
+
+        public ValueTask<SubscriptionHandle<int>> SubscribeCountAsync(Func<T, bool>? predicate, CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new CountAsyncObserver<T>(predicate, cancellationToken), cancellationToken);
+
+        public ValueTask<SubscriptionHandle<int>> SubscribeCountAsync(CancellationToken cancellationToken = default)
+            => @this.SubscribeCountAsync(null, cancellationToken);
     }
 
     sealed class CountAsyncObserver<T>(Func<T, bool>? predicate, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, int>(cancellationToken)
