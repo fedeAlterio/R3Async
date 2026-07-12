@@ -27,9 +27,18 @@ public static partial class AsyncObservable
             _ = await @this.SubscribeAsync(observer, cancellationToken);
             return await observer.WaitValueAsync();
         }
+
+        public ValueTask<SubscriptionHandle<T?>> SubscribeLastOrDefaultAsync(Func<T, bool> predicate, T? defaultValue, CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new LastOrDefaultObserver<T>(predicate, defaultValue, cancellationToken), cancellationToken);
+
+        public ValueTask<SubscriptionHandle<T?>> SubscribeLastOrDefaultAsync(CancellationToken cancellationToken = default)
+            => @this.SubscribeLastOrDefaultAsync(default, cancellationToken);
+
+        public ValueTask<SubscriptionHandle<T?>> SubscribeLastOrDefaultAsync(T? defaultValue, CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new LastOrDefaultObserver<T>(null, defaultValue, cancellationToken), cancellationToken);
     }
 
-    sealed class LastOrDefaultObserver<T>(Func<T, bool>? predicate, T? defaultValue, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, T>(cancellationToken)
+    sealed class LastOrDefaultObserver<T>(Func<T, bool>? predicate, T? defaultValue, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, T?>(cancellationToken)
     {
         T? _last = defaultValue;
 

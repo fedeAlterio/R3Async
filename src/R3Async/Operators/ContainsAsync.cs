@@ -20,6 +20,12 @@ public static partial class AsyncObservable
 
         public ValueTask<bool> ContainsAsync(T value, CancellationToken cancellationToken = default)
             => @this.ContainsAsync(value, null, cancellationToken);
+
+        public ValueTask<SubscriptionHandle<bool>> SubscribeContainsAsync(T value, IEqualityComparer<T>? comparer, CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new ContainsAsyncObserver<T>(value, comparer ?? EqualityComparer<T>.Default, cancellationToken), cancellationToken);
+
+        public ValueTask<SubscriptionHandle<bool>> SubscribeContainsAsync(T value, CancellationToken cancellationToken = default)
+            => @this.SubscribeContainsAsync(value, null, cancellationToken);
     }
 
     sealed class ContainsAsyncObserver<T>(T value, IEqualityComparer<T> comparer, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, bool>(cancellationToken)

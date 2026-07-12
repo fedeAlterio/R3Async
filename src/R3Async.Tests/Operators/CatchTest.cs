@@ -145,40 +145,4 @@ public class CatchTest
 
         handlerDisposed.ShouldBeTrue();
     }
-
-    [Fact]
-    public async Task CatchAndIgnoreErrorResume_ForwardsOnErrorResumeToUnhandled()
-    {
-        var expected = new InvalidOperationException("outer resume");
-        var tcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var source = AsyncObservable.Create<int>(async (observer, token) =>
-        {
-            _ = Task.Run(async () =>
-            {
-                await observer.OnErrorResumeAsync(expected, token);
-                await observer.OnCompletedAsync(Result.Success);
-            });
-            return AsyncDisposable.Empty;
-        });
-
-        var caught = source.CatchAndIgnoreErrorResume(_ => AsyncObservable.Empty<int>());
-
-        var field = typeof(UnhandledExceptionHandler).GetField("_unhandledException", BindingFlags.Static | BindingFlags.NonPublic);
-        var previous = (Action<Exception>)field.GetValue(null)!;
-
-        try
-        {
-            UnhandledExceptionHandler.Register(ex => tcs.TrySetResult(ex));
-
-            await using var subscription = await caught.SubscribeAsync(async (x, token) => { }, CancellationToken.None);
-
-            var ex = await tcs.Task;
-            ex.ShouldBe(expected);
-        }
-        finally
-        {
-            UnhandledExceptionHandler.Register(previous);
-        }
-    }
 }

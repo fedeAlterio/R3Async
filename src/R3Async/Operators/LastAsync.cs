@@ -22,6 +22,12 @@ public static partial class AsyncObservable
             _ = await @this.SubscribeAsync(observer, cancellationToken);
             return await observer.WaitValueAsync();
         }
+
+        public ValueTask<SubscriptionHandle<T>> SubscribeLastAsync(Func<T, bool> predicate, CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new LastAsyncObserver<T>(predicate, cancellationToken), cancellationToken);
+
+        public ValueTask<SubscriptionHandle<T>> SubscribeLastAsync(CancellationToken cancellationToken = default)
+            => @this.ToSubscriptionAsyncHandleAsync(new LastAsyncObserver<T>(null, cancellationToken), cancellationToken);
     }
 
     sealed class LastAsyncObserver<T>(Func<T, bool>? predicate, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, T>(cancellationToken)

@@ -212,6 +212,29 @@ Async methods that consume the observable and return results:
 - `ToDictionaryAsync` - Collect to dictionary
 - `ToAsyncEnumerable` - Convert to async enumerable using System.Threading.Channels
 
+#### Subscribe Variants
+
+Aggregation operators like `FirstAsync`, `CountAsync`, `ToListAsync`, `ToAsyncEnumerable`, etc. bundle "subscribe" and "wait for the result" into a single await, so you have no way to know exactly *when* the subscription became active - only that it happened somewhere before the result arrived. That's a problem for the common **subscribe, then trigger, then wait for the response** pattern: if you send a request before you're certain the response subscription is live, the response can arrive and be missed in the gap between sending and subscribing.
+
+Each of these operators has a `Subscribe`-prefixed counterpart (`SubscribeFirstAsync`, `SubscribeCountAsync`, `SubscribeToListAsync`, `SubscribeToAsyncEnumerableAsync`, ...) that splits the two steps apart: it subscribes eagerly and returns as soon as the subscription is fully established, handing back a handle whose result you await separately, whenever you're ready. This lets you subscribe first, confirm the subscription is live, *then* send whatever triggers the response, with no race window:
+
+```csharp
+// 1. Subscribe first - by the time this await returns, we are guaranteed to observe
+//    any matching response from this point onward.
+var subscription = await responses.Values.SubscribeFirstAsync(r => r.RequestId == requestId);
+
+// 2. Only now send the request - the response can't arrive before we're subscribed.
+await SendRequestAsync(requestId);
+
+// 3. Wait for the response (optionally bounded by a timeout/CancellationToken)
+var response = await subscription.GetResultAsync(timeout: TimeSpan.FromSeconds(5));
+
+// Or give up early without ever waiting for a response
+await subscription.DisposeAsync();
+```
+
+`SubscribeToAsyncEnumerableAsync` follows the same idea for the streaming case: it returns an `IAsyncDisposableReference<IAsyncEnumerable<T>>` whose `Value` is ready to enumerate immediately and whose `DisposeAsync()` unsubscribes independently of enumeration - as opposed to `ToAsyncEnumerable`, which subscribes lazily on first `MoveNextAsync`, offering no such guarantee.
+
 #### ToAsyncEnumerable and Channel Selection
 
 There is no "one way" to convert an async observable to an async enumerable - the behavior depends on backpressure semantics. For this reason, `ToAsyncEnumerable` accepts a channel factory function, allowing you to choose the appropriate channel type:

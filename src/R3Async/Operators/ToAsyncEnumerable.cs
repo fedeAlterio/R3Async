@@ -33,4 +33,27 @@ public static partial class AsyncObservable
             }
         }
     }
+
+    // Unlike ToAsyncEnumerable, which subscribes lazily on first enumeration, this subscribes
+    // eagerly (as part of the returned ValueTask) and hands back the still-open subscription
+    // separately, so the caller can unsubscribe early without abandoning enumeration.
+    public static async ValueTask<IAsyncDisposableReference<IAsyncEnumerable<T>>> SubscribeToAsyncEnumerableAsync<T>(
+        this AsyncObservable<T> @this,
+        Func<Channel<T>> channelFactory,
+        Func<Exception, CancellationToken, ValueTask>? onErrorResume = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (@this is null)
+            throw new ArgumentNullException(nameof(@this));
+        if (channelFactory is null)
+            throw new ArgumentNullException(nameof(channelFactory));
+
+        var channel = channelFactory();
+        var subscription = await @this.PipeAsync(channel.Writer, onErrorResume, cancellationToken);
+        return new AsyncDisposableValue<IAsyncEnumerable<T>>
+        {
+            Value = channel.Reader.ReadAllAsync(cancellationToken),
+            Disposable = subscription,
+        };
+    }
 }

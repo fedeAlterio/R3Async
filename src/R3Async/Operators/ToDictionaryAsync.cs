@@ -28,6 +28,21 @@ public static partial class AsyncObservable
             _ = await @this.SubscribeAsync(observer, cancellationToken);
             return await observer.WaitValueAsync();
         }
+
+        public ValueTask<SubscriptionHandle<Dictionary<TKey, T>>> SubscribeToDictionaryAsync<TKey>(Func<T, TKey> keySelector, IEqualityComparer<TKey>? comparer = null, CancellationToken cancellationToken = default)
+            where TKey : notnull
+        {
+            if (keySelector is null) throw new ArgumentNullException(nameof(keySelector));
+            return @this.ToSubscriptionAsyncHandleAsync(new ToDictionaryAsyncObserver<T, TKey, T>(keySelector, x => x, comparer, cancellationToken), cancellationToken);
+        }
+
+        public ValueTask<SubscriptionHandle<Dictionary<TKey, TValue>>> SubscribeToDictionaryAsync<TKey, TValue>(Func<T, TKey> keySelector, Func<T, TValue> elementSelector, IEqualityComparer<TKey>? comparer = null, CancellationToken cancellationToken = default)
+            where TKey : notnull
+        {
+            if (keySelector is null) throw new ArgumentNullException(nameof(keySelector));
+            if (elementSelector is null) throw new ArgumentNullException(nameof(elementSelector));
+            return @this.ToSubscriptionAsyncHandleAsync(new ToDictionaryAsyncObserver<T, TKey, TValue>(keySelector, elementSelector, comparer, cancellationToken), cancellationToken);
+        }
     }
 
     sealed class ToDictionaryAsyncObserver<TSource, TKey, TValue>(Func<TSource, TKey> keySelector, Func<TSource, TValue> elementSelector, IEqualityComparer<TKey>? comparer, CancellationToken cancellationToken) : TaskAsyncObserverBase<TSource, Dictionary<TKey, TValue>>(cancellationToken)

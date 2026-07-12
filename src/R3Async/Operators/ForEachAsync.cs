@@ -24,6 +24,18 @@ public static partial class AsyncObservable
             await @this.SubscribeAsync(observer, cancellationToken);
             await observer.WaitValueAsync();
         }
+
+        public ValueTask<SubscriptionHandle<bool>> SubscribeForEachAsync(Func<T, CancellationToken, ValueTask> onNextAsync, CancellationToken cancellationToken = default)
+        {
+            if (onNextAsync is null) throw new ArgumentNullException(nameof(onNextAsync));
+            return @this.ToSubscriptionAsyncHandleAsync(new ForEachObserver<T>(onNextAsync, cancellationToken), cancellationToken);
+        }
+
+        public ValueTask<SubscriptionHandle<bool>> SubscribeForEachAsync(Action<T> onNext, CancellationToken cancellationToken = default)
+        {
+            if (onNext is null) throw new ArgumentNullException(nameof(onNext));
+            return @this.ToSubscriptionAsyncHandleAsync(new ForEachObserverSync<T>(onNext, cancellationToken), cancellationToken);
+        }
     }
 
     sealed class ForEachObserver<T>(Func<T, CancellationToken, ValueTask> onNextAsync, CancellationToken cancellationToken) : TaskAsyncObserverBase<T, bool>(cancellationToken)
