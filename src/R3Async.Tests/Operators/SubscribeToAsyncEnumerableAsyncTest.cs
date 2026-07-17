@@ -116,6 +116,41 @@ public class SubscribeToAsyncEnumerableAsyncTest
     }
 
     [Fact]
+    public async Task SubscribeToAsyncEnumerableAsync_CancellingSubscribeToken_DoesNotCancelEnumeration()
+    {
+        var source = AsyncObservable.Create<int>((observer, token) =>
+        {
+            // Values are pushed independently of the subscribe token, so cancelling it
+            // afterwards only exercises whether enumeration itself observes cancellation.
+            _ = Task.Run(async () =>
+            {
+                await observer.OnNextAsync(1, CancellationToken.None);
+                await observer.OnNextAsync(2, CancellationToken.None);
+                await observer.OnCompletedAsync(Result.Success);
+            });
+            return new ValueTask<IAsyncDisposable>(AsyncDisposable.Empty);
+        });
+
+        using var cts = new CancellationTokenSource();
+
+        await using var subscription = await source.SubscribeToAsyncEnumerableAsync(
+            () => Channel.CreateUnbounded<int>(),
+            cancellationToken: cts.Token);
+
+        // The token passed to SubscribeToAsyncEnumerableAsync only governs subscribing;
+        // cancelling it afterwards must not cancel enumeration of the returned IAsyncEnumerable.
+        cts.Cancel();
+
+        var list = new List<int>();
+        await foreach (var x in subscription.Value)
+        {
+            list.Add(x);
+        }
+
+        list.ShouldBe(new[] { 1, 2 });
+    }
+
+    [Fact]
     public async Task SubscribeToAsyncEnumerableAsync_Dispose_UnsubscribesSource()
     {
         var disposedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

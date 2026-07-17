@@ -52,7 +52,7 @@ public static partial class AsyncObservable
         var subscription = await @this.PipeAsync(channel.Writer, onErrorResume, cancellationToken);
         return new AsyncDisposableValue<IAsyncEnumerable<T>>
         {
-            Value = channel.Reader.ReadAllAsync(cancellationToken),
+            Value = channel.Reader.ReadAllAsync(CancellationToken.None),
             Disposable = subscription,
         };
     }
