@@ -38,6 +38,29 @@ jobs:
           git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip release]"
           git push
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore ./src
+
+      - name: Build
+        run: dotnet build -c Release ./src --no-restore
+
+      - name: Test
+        run: dotnet test -c Release ./src/R3Async.Tests --no-build --verbosity normal
+
+      - name: Pack nugets
+        run: dotnet pack src/R3Async -c Release --no-build --output .
+
+      - name: Push to NuGet
+        run: dotnet nuget push "*.nupkg" --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
+
+      # Note: this uses GITHUB_TOKEN, so the resulting "release: published" event does NOT
+      # re-trigger release.yml (GitHub blocks workflow-triggered events from starting new
+      # workflow runs to avoid recursion) — that's why publishing happens in this job directly.
       - name: Create tag and GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
