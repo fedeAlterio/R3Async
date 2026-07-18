@@ -157,7 +157,18 @@ public static class AsyncToR3ObservableExtensions
             disposeStrategy.Execute(DisposeCoreAsync());
         }
 
-        ValueTask DisposeCoreAsync() => subscription.DisposeAsync();
+        ValueTask DisposeCoreAsync()
+        {
+            try
+            {
+                var a = subscription.DisposeAsync();
+                return a;
+            }
+            catch (Exception e)
+            {
+                return new(Task.FromException(e));
+            }
+        }
     }
 
     sealed class PendingSubscriptionDisposable(ValueTask<IAsyncDisposable> subscriptionTask, CancellationTokenSource cts, AsyncToSyncStrategy disposeStrategy) : IDisposable
