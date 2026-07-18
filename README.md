@@ -1,6 +1,6 @@
 # R3Async
 
-[![NuGet](https://img.shields.io/nuget/v/R3Async.svg)](https://www.nuget.org/packages/R3Async) [![NuGet R3Interop](https://img.shields.io/nuget/v/R3Async.R3Interop.svg?label=R3Async.R3Interop)](https://www.nuget.org/packages/R3Async.R3Interop)
+[![NuGet](https://img.shields.io/nuget/v/R3Async.svg)](https://www.nuget.org/packages/R3Async) [![NuGet R3Interop](https://img.shields.io/nuget/v/R3Async.R3Interop.svg?label=R3Async.R3Interop)](https://www.nuget.org/packages/R3Async.R3Interop) [![codecov](https://codecov.io/gh/fedeAlterio/R3Async/branch/main/graph/badge.svg)](https://codecov.io/gh/fedeAlterio/R3Async)
 
 R3Async is the **async version** of [R3](https://github.com/Cysharp/R3), a Reactive Extensions library for .NET. While R3 provides synchronous reactive programming primitives, R3Async is built from the ground up to support fully asynchronous reactive streams using `ValueTask` and `IAsyncDisposable`.
 

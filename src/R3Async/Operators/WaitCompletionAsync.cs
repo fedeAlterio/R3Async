@@ -13,7 +13,7 @@ public static partial class AsyncObservable
     {
         var observer = new WaitCompletionAsyncObserver<T>(cancellationToken);
         _ = await @this.SubscribeAsync(observer, cancellationToken);
-        await observer.WaitValueAsync();
+        await observer.WaitValueAsync(cancellationToken: cancellationToken);
     }
 
     public static ValueTask<SubscriptionHandle<object?>> SubscribeWaitCompletionAsync<T>(this AsyncObservable<T> @this, CancellationToken cancellationToken = default)
