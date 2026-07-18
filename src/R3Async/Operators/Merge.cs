@@ -190,14 +190,22 @@ public static partial class AsyncObservable
         protected override async ValueTask SubscribeInnerAsync(AsyncObservable<T> inner)
         {
             await _semaphore.WaitAsync(DisposedCancellationToken);
+            InnerAsyncObserverWithSemaphore? innerObserver = null;
             try
             {
-                var innerObserver = CreateInnerObserver();
+                innerObserver = new InnerAsyncObserverWithSemaphore(this);
                 await innerObserver.SubscribeAsync(inner);
             }
             catch (Exception e)
             {
-                _semaphore.Release();
+                // A failed inner observer has normally already been disposed, releasing our slot
+                // through OnDisposeAsync; ReleaseSemaphoreOnce guarantees exactly one release per
+                // acquired slot no matter which side got there first.
+                if (innerObserver is null)
+                    _semaphore.Release();
+                else
+                    innerObserver.ReleaseSemaphoreOnce();
+
                 await CompleteAsync(Result.Failure(e));
             }
         }
@@ -206,9 +214,19 @@ public static partial class AsyncObservable
 
         sealed class InnerAsyncObserverWithSemaphore(MergeSubscriptionWithMaxConcurrency<T> parent) : InnerAsyncObserver(parent)
         {
+            int _semaphoreReleased;
+
+            public void ReleaseSemaphoreOnce()
+            {
+                if (Interlocked.Exchange(ref _semaphoreReleased, 1) == 0)
+                {
+                    parent._semaphore.Release();
+                }
+            }
+
             protected override ValueTask OnDisposeAsync()
             {
-                parent._semaphore.Release();
+                ReleaseSemaphoreOnce();
                 return default;
             }
         }
