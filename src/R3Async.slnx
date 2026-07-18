@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/Playground/" />
+  <Folder Name="/Playground/">
+    <Project Path="Playground/Playground.Console/Playground.Console.csproj" Id="642851e3-1cc9-4292-9651-2bdb32f42616" />
+  </Folder>
   <Folder Name="/Playground/Aspire/">
     <Project Path="Playground/Playground.AppHost/Playground.AppHost.csproj" Id="59e975d9-000a-4c37-9667-f6f4eef72863" />
     <Project Path="Playground/Playground.Avalonia/Playground.Avalonia.csproj" Id="19445a01-f788-4c04-a98b-09a2eb6ef0b5" />
@@ -8,7 +10,7 @@
     <Project Path="Playground/Playground.ServiceA/Playground.ServiceA.csproj" Id="0b1257d9-084f-48b3-9501-39ba99f2bbf7" />
     <Project Path="Playground/Playground.ServiceDefaults/Playground.ServiceDefaults.csproj" />
   </Folder>
-  <Project Path="R3Async.ConsolePlayground/R3Async.ConsolePlayground.csproj" Id="642851e3-1cc9-4292-9651-2bdb32f42616" />
+  <Project Path="R3Async.R3Interop/R3Async.R3Interop.csproj" />
   <Project Path="R3Async.Tests/R3Async.Tests.csproj" Id="6aa55beb-17e6-4c8f-adbd-d152d7426cdd" />
   <Project Path="R3Async/R3Async.csproj" />
 </Solution>

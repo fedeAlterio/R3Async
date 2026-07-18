@@ -1,6 +1,6 @@
 # R3Async
 
-[![NuGet](https://img.shields.io/nuget/v/R3Async.svg)](https://www.nuget.org/packages/R3Async)
+[![NuGet](https://img.shields.io/nuget/v/R3Async.svg)](https://www.nuget.org/packages/R3Async) [![NuGet R3Interop](https://img.shields.io/nuget/v/R3Async.R3Interop.svg?label=R3Async.R3Interop)](https://www.nuget.org/packages/R3Async.R3Interop)
 
 R3Async is the **async version** of [R3](https://github.com/Cysharp/R3), a Reactive Extensions library for .NET. While R3 provides synchronous reactive programming primitives, R3Async is built from the ground up to support fully asynchronous reactive streams using `ValueTask` and `IAsyncDisposable`.
 
@@ -888,6 +888,61 @@ UnhandledExceptionHandler.Register(exception =>
 ```
 
 Note: `OperationCanceledException` is automatically ignored by the unhandled exception handler.
+
+## R3 Interop
+
+The [R3Async.R3Interop](https://www.nuget.org/packages/R3Async.R3Interop) package bridges R3Async with [R3](https://github.com/Cysharp/R3), converting between the synchronous `Observable<T>` and the asynchronous `AsyncObservable<T>` in both directions.
+
+```csharp
+using R3Async.R3Interop;
+```
+
+### Observable<T> → AsyncObservable<T>
+
+`ToAsyncObservable` converts an R3 observable into an R3Async one. Since an R3 source pushes values synchronously while the async observer may be slow, you must choose a `BackpressureStrategy`:
+
+```csharp
+// Blocking: each notification is delivered synchronously on the emitting thread,
+// which blocks until the async observer finishes processing it
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.Blocking);
+
+// Unbounded channel: values are buffered without limit and consumed by a background loop
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromUnboundedChannel());
+var asyncObservable = observable.ToAsyncObservable(
+    BackpressureStrategy.FromUnboundedChannel(new UnboundedChannelOptions { SingleReader = true }));
+
+// Bounded channel: values are buffered up to a capacity
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromBoundedChannel(16));
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromBoundedChannel(
+    new BoundedChannelOptions(16) { FullMode = BoundedChannelFullMode.DropOldest }));
+
+// Full control: provide the channel and how values are written to it
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromChannel(
+    () => Channel.CreateBounded<int>(2),
+    onNext: (value, writer) => writer.WriteAsync(value).AsTask().GetAwaiter().GetResult(),
+    onErrorResume: (error, writer) => { /* forward or ignore */ }));
+```
+
+Notes:
+
+- Channel-based strategies write with `TryWrite` by default, so with a bounded channel using `FullMode = Wait` (the default) values are **silently dropped** when the buffer is full. Use a drop mode, or a custom `onNext` via `FromChannel`, to get different semantics.
+- `OnErrorResume` notifications go to the `onErrorResume` callback when one is provided (the generic `FromUnboundedChannel<T>`/`FromBoundedChannel<T>` overloads); otherwise they are routed to the `UnhandledExceptionHandler`.
+
+### AsyncObservable<T> → Observable<T>
+
+`ToObservable` converts an R3Async observable into an R3 one. R3's `Subscribe`/`Dispose` are synchronous while R3Async's are not, so you must decide how each async operation is consumed from the sync world via an `AsyncToSyncStrategy`:
+
+```csharp
+var observable = asyncObservable.ToObservable(new ToObservableConfiguration
+{
+    // Blocking: block the caller until the async operation completes (exceptions propagate)
+    SubscribeStrategy = AsyncToSyncStrategy.Blocking,
+
+    // FireAndForget: start the operation without waiting; failures go to the
+    // optional onException callback (or the UnhandledExceptionHandler)
+    DisposeStrategy = AsyncToSyncStrategy.FireAndForget(onException: ex => Console.WriteLine(ex))
+});
+```
 
 ## Missing Features
 

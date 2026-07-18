@@ -20,21 +20,22 @@ jobs:
       - name: Bump patch version
         id: bump
         run: |
-          CSPROJ=src/R3Async/R3Async.csproj
-          CURRENT=$(grep -oP '(?<=<Version>)[^<]+' "$CSPROJ")
+          CURRENT=$(grep -oP '(?<=<Version>)[^<]+' src/R3Async/R3Async.csproj)
           MAJOR=$(echo "$CURRENT" | cut -d. -f1)
           MINOR=$(echo "$CURRENT" | cut -d. -f2)
           PATCH=$(echo "$CURRENT" | cut -d. -f3)
           NEW_PATCH=$((PATCH + 1))
           NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          sed -i "s#<Version>$CURRENT</Version>#<Version>$NEW_VERSION</Version>#" "$CSPROJ"
+          for CSPROJ in src/R3Async/R3Async.csproj src/R3Async.R3Interop/R3Async.R3Interop.csproj; do
+            sed -i -E "s#<Version>[^<]+</Version>#<Version>$NEW_VERSION</Version>#" "$CSPROJ"
+          done
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/R3Async/R3Async.csproj
+          git add src/R3Async/R3Async.csproj src/R3Async.R3Interop/R3Async.R3Interop.csproj
           git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip release]"
           git push
 
@@ -53,7 +54,9 @@ jobs:
         run: dotnet test -c Release ./src/R3Async.Tests --no-build --verbosity normal
 
       - name: Pack nugets
-        run: dotnet pack src/R3Async -c Release --no-build --output .
+        run: |
+          dotnet pack src/R3Async -c Release --no-build --output .
+          dotnet pack src/R3Async.R3Interop -c Release --no-build --output .
 
       - name: Push to NuGet
         run: dotnet nuget push "*.nupkg" --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
