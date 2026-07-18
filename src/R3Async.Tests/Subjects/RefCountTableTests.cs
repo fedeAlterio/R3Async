@@ -36,6 +36,39 @@ public class RefCountTableTests
     }
 
     [Fact]
+    public async Task ConnectionHub_FactoryThrows_DoesNotLeakRefCount()
+    {
+        var calls = 0;
+        var disposed = 0;
+        var hub = new RefCountTable<string, int>(async (key, ct) =>
+        {
+            if (calls++ == 0)
+                throw new InvalidOperationException("factory failed");
+
+            return new AsyncDisposableValue<int>
+            {
+                Value = 42,
+                Disposable = AsyncDisposable.Create(() => disposed++)
+            };
+        });
+
+        await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await hub.GetOrCreateAsync("key1", CancellationToken.None));
+
+        // The failed connection must be discarded: the next caller gets a fresh one,
+        // and the refcount is not off by one, so the value is disposed at zero.
+        var reference = await hub.GetOrCreateAsync("key1", CancellationToken.None);
+        reference.Value.ShouldBe(42);
+        await reference.DisposeAsync();
+        disposed.ShouldBe(1);
+
+        // A new connection is created after disposal, proving the table entry was cleaned up.
+        var reference2 = await hub.GetOrCreateAsync("key1", CancellationToken.None);
+        await reference2.DisposeAsync();
+        disposed.ShouldBe(2);
+    }
+
+    [Fact]
     public async Task ConnectionHub_GetOrCreateConnection_CreatesDifferentSubjectsForDifferentKeys()
     {
         var hub = new RefCountTable<string, ISubject<int>>((key, ct) => Task.FromResult(new AsyncDisposableValue<ISubject<int>>

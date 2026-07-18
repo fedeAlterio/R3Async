@@ -57,6 +57,54 @@ public class CombineLatestCoverageTest
         results.ShouldBe(new[] { (long)arity });
     }
 
+    sealed class ConcurrentSource<T> : AsyncObservable<T>
+    {
+        public AsyncObserver<T>? Observer { get; private set; }
+
+        protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
+        {
+            Observer = observer;
+            return new(AsyncDisposable.Empty);
+        }
+    }
+
+    [Fact]
+    public async Task CombineLatest_ConcurrentSources_NeverEmitTornValues()
+    {
+        // (a, b, c, d) is written as (i, i, i, i); a torn read of the Optional struct
+        // under concurrent emission would surface as mismatched components.
+        var src1 = new ConcurrentSource<(long, long, long, long)>();
+        var src2 = new ConcurrentSource<(long, long, long, long)>();
+
+        var torn = false;
+        await using var subscription = await src1.CombineLatest(src2, (a, b) => (a, b)).SubscribeAsync(
+            async (pair, ct) =>
+            {
+                var (a, b) = pair;
+                if (a.Item1 != a.Item2 || a.Item1 != a.Item3 || a.Item1 != a.Item4 ||
+                    b.Item1 != b.Item2 || b.Item1 != b.Item3 || b.Item1 != b.Item4)
+                {
+                    torn = true;
+                }
+            },
+            CancellationToken.None);
+
+        const int iterations = 3000;
+        var t1 = Task.Run(async () =>
+        {
+            for (long i = 0; i < iterations; i++)
+                await src1.Observer!.OnNextAsync((i, i, i, i), CancellationToken.None);
+        });
+        var t2 = Task.Run(async () =>
+        {
+            for (long i = 0; i < iterations; i++)
+                await src2.Observer!.OnNextAsync((i, i, i, i), CancellationToken.None);
+        });
+
+        await Task.WhenAll(t1, t2);
+        torn.ShouldBeFalse();
+    }
+
     [Fact]
     public async Task CombineLatest2_SecondSourceFails_CompletesWithFailure()
     {

@@ -266,6 +266,34 @@ public class DisposablesCoverageTest
         disposedCount.ShouldBe(2);
     }
 
+    [Fact]
+    public async Task RefCountLazy_FactoryThrows_DoesNotLeakRefCount()
+    {
+        var calls = 0;
+        var disposedCount = 0;
+        var lazy = new RefCountLazy<int>(async ct =>
+        {
+            if (calls++ == 0)
+                throw new InvalidOperationException("factory failed");
+
+            return new AsyncDisposableValue<int>
+            {
+                Value = 42,
+                Disposable = AsyncDisposable.Create(() => disposedCount++)
+            };
+        });
+
+        await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await lazy.GetAsync(CancellationToken.None));
+
+        // The failed connection must be discarded: the next caller gets a fresh one,
+        // and the refcount is not off by one, so the value is disposed at zero.
+        var reference = await lazy.GetAsync(CancellationToken.None);
+        reference.Value.ShouldBe(42);
+        await reference.DisposeAsync();
+        disposedCount.ShouldBe(1);
+    }
+
     sealed class TestDisposable(Action onDispose) : IDisposable
     {
         public void Dispose() => onDispose();

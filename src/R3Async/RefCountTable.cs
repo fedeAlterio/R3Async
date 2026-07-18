@@ -50,11 +50,16 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<Asyn
             {
                 if (--_refCount == 0)
                 {
-                    _connectionDisposed = true;
-                    parent._subjectsByKey.RemoveOnlyIfKeyValueMatch(key, this);
+                    SetDisposedAndDeleteFromDictionary();
                     await Entry!.Value.Disposable.DisposeAsync();
                 }
             }
+        }
+
+        void SetDisposedAndDeleteFromDictionary()
+        {
+            _connectionDisposed = true;
+            parent._subjectsByKey.RemoveOnlyIfKeyValueMatch(key, this);
         }
 
         public async ValueTask<bool> IncrementRefCount(CancellationToken cancellationToken)
@@ -64,8 +69,21 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<Asyn
                 if (_connectionDisposed) return true;
 
                 _refCount++;
-                Entry ??= await valueFactory(key, cancellationToken);
-                return false;
+                if (Entry is not null) return false;
+
+                try
+                {
+                    Entry = await valueFactory(key, cancellationToken);
+                    return false;
+                }
+                catch
+                {
+                    // The factory failed, so no Reference is handed out for this increment and the
+                    // count can never reach zero again. Kill the whole connection: pending and future
+                    // callers see it as disposed and retry with a fresh one.
+                    SetDisposedAndDeleteFromDictionary();
+                    throw;
+                }
             }
         }
 

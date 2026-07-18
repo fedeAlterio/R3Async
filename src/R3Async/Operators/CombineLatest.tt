@@ -82,12 +82,18 @@ public static partial class AsyncObservable
 <# for(int i=1;i<=n;i++){ #>
             ValueTask OnNext_<#= i #>(T<#= i #> value, CancellationToken cancellationToken)
             {
-                lock (_disposeCts)
+                bool hasAll;
+<#= LocalValueDecls(n) #>                lock (_disposeCts)
                 {
                     _val<#= i #> = new(value);
+                    hasAll = <#= AllValuesCheck(n) #>;
                 }
 
-<#= CheckAllValuesAndInvoke(n, i) #>                return default;
+                if (hasAll)
+                {
+                    return OnNextCombined(<#= SelectorArgs(n) #>, cancellationToken);
+                }
+                return default;
             }
 
             ValueTask OnCompleted_<#= i #>(Result result)
@@ -204,29 +210,22 @@ public static partial class AsyncObservable
         return sb.ToString();
     }
 
-    string CheckAllValuesAndInvoke(int n, int currentIndex) {
+    string LocalValueDecls(int n) {
         var sb = new StringBuilder();
-        sb.Append("                if (");
         for (int i = 1; i <= n; i++) {
-            if (i > 1) sb.Append(" && ");
-            sb.Append($"_val{i}.TryGetValue(out var v{i})");
+            sb.AppendLine($"                T{i} v{i} = default!;");
         }
-        sb.Append(")");
-        sb.AppendLine();
-        sb.Append("                {");
-        sb.AppendLine();
-        
-        // Build the argument list manually
-        var args = new List<string>();
-        for (int i = 1; i <= n; i++) {
-            args.Add($"v{i}");
-        }
-        
-        sb.Append($"                    return OnNextCombined({string.Join(", ", args)}, cancellationToken);");
-        sb.AppendLine();
-        sb.Append("                }");
-        sb.AppendLine();
         return sb.ToString();
+    }
+
+    // The latest values are written and read under the same lock: the sources emit concurrently,
+    // and an unlocked read of an Optional<T> struct could observe a torn value.
+    string AllValuesCheck(int n) {
+        var parts = new List<string>();
+        for (int i = 1; i <= n; i++) {
+            parts.Add($"_val{i}.TryGetValue(out v{i})");
+        }
+        return string.Join(" && ", parts);
     }
 
     string AllDoneCheck(int n) {

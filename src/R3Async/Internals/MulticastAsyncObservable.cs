@@ -19,27 +19,41 @@ internal sealed class MulticastAsyncObservable<T>(AsyncObservable<T> observable,
     {
         using (await _gate.LockAsync())
         {
-            if(_connection != null)
+            var connection = _connection;
+            if (connection is null)
             {
-                return _connection;
+                connection = new SingleAssignmentAsyncDisposable();
+                _connection = connection;
+                try
+                {
+                    await connection.SetDisposableAsync(await observable.SubscribeAsync(subject.AsAsyncObserver(), cancellationToken));
+                }
+                catch
+                {
+                    _connection = null;
+                    await connection.DisposeAsync();
+                    throw;
+                }
             }
 
-            SingleAssignmentAsyncDisposable? connection = new();
-            _connection = connection;
-            await connection.SetDisposableAsync(await observable.SubscribeAsync(subject.AsAsyncObserver(), cancellationToken));
-            return AsyncDisposable.Create(async () =>
-            {
-                using (await _gate.LockAsync())
-                {
-                    if (connection is null)
-                        return;
-
-                    var localConn = connection;
-                    connection = null;
-                    _connection = null;
-                    await localConn.DisposeAsync();
-                }
-            });
+            return CreateDisconnectHandle(connection);
         }
+    }
+
+    IAsyncDisposable CreateDisconnectHandle(SingleAssignmentAsyncDisposable connection)
+    {
+        return AsyncDisposable.Create(async () =>
+        {
+            using (await _gate.LockAsync())
+            {
+                // Only the handles of the current connection may disconnect: a stale handle from a
+                // previous connection must not tear down a newer one.
+                if (_connection != connection)
+                    return;
+
+                _connection = null;
+                await connection.DisposeAsync();
+            }
+        });
     }
 }
