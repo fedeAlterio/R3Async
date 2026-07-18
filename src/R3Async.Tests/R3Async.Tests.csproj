@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\R3Async\R3Async.csproj" />
+    <ProjectReference Include="..\R3Async.R3Interop\R3Async.R3Interop.csproj" />
   </ItemGroup>
 
   <ItemGroup>
