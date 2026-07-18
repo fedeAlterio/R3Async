@@ -9,9 +9,9 @@ namespace R3Async.Tests.R3Interop;
 
 public class ToAsyncObservableTest
 {
-    static PublishingConfiguration<int> UnboundedConfiguration(Action<Exception, ChannelWriter<int>>? onErrorResume = null)
+    static ChannelBackpressureStrategy<int> UnboundedConfiguration(Action<Exception, ChannelWriter<int>>? onErrorResume = null)
     {
-        return PublishingConfiguration.NonBlocking(
+        return BackpressureStrategy.FromChannel(
             () => Channel.CreateUnbounded<int>(new UnboundedChannelOptions { SingleReader = true }),
             (value, writer) => writer.TryWrite(value),
             onErrorResume ?? ((error, writer) => { }));
@@ -83,7 +83,7 @@ public class ToAsyncObservableTest
     public async Task ToAsyncObservable_BlockingMode_PropagatesOnErrorResume()
     {
         var subject = new R3.Subject<int>();
-        var observable = subject.ToAsyncObservable(PublishingConfiguration.Blocking<int>());
+        var observable = subject.ToAsyncObservable(BackpressureStrategy.Blocking);
 
         var errorTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -149,7 +149,7 @@ public class ToAsyncObservableTest
     public async Task ToAsyncObservable_BlockingMode_EmitsValuesAndCompletion()
     {
         var subject = new R3.Subject<int>();
-        var observable = subject.ToAsyncObservable(PublishingConfiguration.Blocking<int>());
+        var observable = subject.ToAsyncObservable(BackpressureStrategy.Blocking);
 
         var results = new List<int>();
         Result? completed = null;
@@ -174,7 +174,7 @@ public class ToAsyncObservableTest
     public async Task ToAsyncObservable_NonBlockingWithBoundedChannel_ReceivesAllValuesInOrder()
     {
         var subject = new R3.Subject<int>();
-        var publishingConfiguration = PublishingConfiguration.NonBlocking(
+        var backpressureStrategy = BackpressureStrategy.FromChannel(
             () => Channel.CreateBounded<int>(new BoundedChannelOptions(2)
             {
                 SingleReader = true,
@@ -190,7 +190,7 @@ public class ToAsyncObservableTest
             },
             (error, writer) => { });
 
-        var observable = subject.ToAsyncObservable(publishingConfiguration);
+        var observable = subject.ToAsyncObservable(backpressureStrategy);
 
         var results = new List<int>();
         var completedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -222,11 +222,17 @@ public class ToAsyncObservableTest
 
 public class ToObservableTest
 {
+    static ToObservableConfiguration BlockingConfiguration { get; } = new()
+    {
+        SubscribeStrategy = AsyncToSyncStrategy.Blocking,
+        DisposeStrategy = AsyncToSyncStrategy.Blocking
+    };
+
     [Fact]
     public async Task ToObservable_EmitsValuesAndCompletion()
     {
         var subject = Subject.Create<int>();
-        var observable = subject.Values.ToObservable();
+        var observable = subject.Values.ToObservable(BlockingConfiguration);
 
         var results = new List<int>();
         R3.Result? completed = null;
@@ -246,7 +252,7 @@ public class ToObservableTest
     public async Task ToObservable_PropagatesFailure()
     {
         var subject = Subject.Create<int>();
-        var observable = subject.Values.ToObservable();
+        var observable = subject.Values.ToObservable(BlockingConfiguration);
 
         R3.Result? completed = null;
         using var subscription = observable.Subscribe(_ => { }, _ => { }, r => completed = r);
@@ -263,7 +269,7 @@ public class ToObservableTest
     public async Task ToObservable_DisposeStopsNotifications()
     {
         var subject = Subject.Create<int>();
-        var observable = subject.Values.ToObservable();
+        var observable = subject.Values.ToObservable(BlockingConfiguration);
 
         var results = new List<int>();
         var subscription = observable.Subscribe(results.Add);
@@ -281,8 +287,8 @@ public class ToObservableTest
         var subject = Subject.Create<int>();
         var configuration = new ToObservableConfiguration
         {
-            SubscribeMode = AsyncOperationMode.Background(),
-            DisposeMode = AsyncOperationMode.Background()
+            SubscribeStrategy = AsyncToSyncStrategy.FireAndForget(),
+            DisposeStrategy = AsyncToSyncStrategy.FireAndForget()
         };
 
         var observable = subject.Values.ToObservable(configuration);

@@ -6,64 +6,165 @@ using R3;
 
 namespace R3Async.R3Interop;
 
-public static class PublishingConfiguration
+public static class BackpressureStrategy
 {
-    public static PublishingConfiguration<T> Blocking<T>() => PublishingConfiguration<T>.BlockingInstance;
+    public static BlockingBackpressureStrategy Blocking { get; } = new();
 
-    public static PublishingConfiguration<T> NonBlocking<T>(Func<Channel<T>> channelFactory,
-                                                            Action<T, ChannelWriter<T>> onNext,
-                                                            Action<Exception, ChannelWriter<T>>? onErrorResume = null)
+    public static UnboundedChannelBackpressureStrategy FromUnboundedChannel(UnboundedChannelOptions? options = null)
+    {
+        return new(options);
+    }
+
+    public static ChannelBackpressureStrategy<T> FromUnboundedChannel<T>(Action<Exception, ChannelWriter<T>> onErrorResume,
+                                                                         UnboundedChannelOptions? options = null)
+    {
+        if (onErrorResume is null)
+            throw new ArgumentNullException(nameof(onErrorResume));
+
+        return UnboundedChannelBackpressureStrategy.ToChannelStrategy(options, onErrorResume);
+    }
+
+    public static BoundedChannelBackpressureStrategy FromBoundedChannel(int capacity)
+    {
+        return new(new BoundedChannelOptions(capacity));
+    }
+
+    public static BoundedChannelBackpressureStrategy FromBoundedChannel(BoundedChannelOptions options)
+    {
+        if (options is null)
+            throw new ArgumentNullException(nameof(options));
+
+        return new(options);
+    }
+
+    public static ChannelBackpressureStrategy<T> FromBoundedChannel<T>(Action<Exception, ChannelWriter<T>> onErrorResume, int capacity)
+    {
+        return FromBoundedChannel(onErrorResume, new BoundedChannelOptions(capacity));
+    }
+
+    public static ChannelBackpressureStrategy<T> FromBoundedChannel<T>(Action<Exception, ChannelWriter<T>> onErrorResume, BoundedChannelOptions options)
+    {
+        if (onErrorResume is null)
+            throw new ArgumentNullException(nameof(onErrorResume));
+        if (options is null)
+            throw new ArgumentNullException(nameof(options));
+
+        return BoundedChannelBackpressureStrategy.ToChannelStrategy(options, onErrorResume);
+    }
+
+    public static ChannelBackpressureStrategy<T> FromChannel<T>(Func<Channel<T>> channelFactory,
+                                                                Action<T, ChannelWriter<T>>? onNext = null,
+                                                                Action<Exception, ChannelWriter<T>>? onErrorResume = null)
     {
         if (channelFactory is null)
             throw new ArgumentNullException(nameof(channelFactory));
-        if (onNext is null)
-            throw new ArgumentNullException(nameof(onNext));
 
-        return new(PublishingConfiguration<T>.Kind.NonBlocking, channelFactory, onNext, onErrorResume);
+        return new(channelFactory, onNext ?? (static (x, c) => c.TryWrite(x)), onErrorResume);
     }
 }
 
-public sealed class PublishingConfiguration<T>
+public sealed class BlockingBackpressureStrategy
 {
-    internal enum Kind
+    internal BlockingBackpressureStrategy()
     {
-        Blocking,
-        NonBlocking
+    }
+}
+
+public sealed class UnboundedChannelBackpressureStrategy
+{
+    readonly UnboundedChannelOptions? options;
+
+    internal UnboundedChannelBackpressureStrategy(UnboundedChannelOptions? options)
+    {
+        this.options = options;
     }
 
-    internal PublishingConfiguration(Kind kind,
-                                     Func<Channel<T>>? channelFactory,
-                                     Action<T, ChannelWriter<T>>? onNext,
-                                     Action<Exception, ChannelWriter<T>>? onErrorResume)
+    internal ChannelBackpressureStrategy<T> ToChannelStrategy<T>() => ToChannelStrategy<T>(options, null);
+
+    internal static ChannelBackpressureStrategy<T> ToChannelStrategy<T>(UnboundedChannelOptions? options,
+                                                                        Action<Exception, ChannelWriter<T>>? onErrorResume)
     {
-        InternalKind = kind;
+        return BackpressureStrategy.FromChannel(() => options is null ? Channel.CreateUnbounded<T>() : Channel.CreateUnbounded<T>(options),
+                                                static (x, c) => c.TryWrite(x),
+                                                onErrorResume);
+    }
+}
+
+public sealed class BoundedChannelBackpressureStrategy
+{
+    readonly BoundedChannelOptions options;
+
+    internal BoundedChannelBackpressureStrategy(BoundedChannelOptions options)
+    {
+        this.options = options;
+    }
+
+    internal ChannelBackpressureStrategy<T> ToChannelStrategy<T>() => ToChannelStrategy<T>(options, null);
+
+    internal static ChannelBackpressureStrategy<T> ToChannelStrategy<T>(BoundedChannelOptions options,
+                                                                        Action<Exception, ChannelWriter<T>>? onErrorResume)
+    {
+        return BackpressureStrategy.FromChannel(() => Channel.CreateBounded<T>(options),
+                                                onErrorResume: onErrorResume);
+    }
+}
+
+public sealed class ChannelBackpressureStrategy<T>
+{
+    internal ChannelBackpressureStrategy(Func<Channel<T>> channelFactory,
+                                             Action<T, ChannelWriter<T>> onNext,
+                                             Action<Exception, ChannelWriter<T>>? onErrorResume)
+    {
         ChannelFactory = channelFactory;
         OnNext = onNext;
         OnErrorResume = onErrorResume;
     }
 
-    internal static PublishingConfiguration<T> BlockingInstance { get; } = new(Kind.Blocking, null, null, null);
-
-    internal Kind InternalKind { get; }
-    internal Func<Channel<T>>? ChannelFactory { get; }
-    internal Action<T, ChannelWriter<T>>? OnNext { get; }
+    internal Func<Channel<T>> ChannelFactory { get; }
+    internal Action<T, ChannelWriter<T>> OnNext { get; }
     internal Action<Exception, ChannelWriter<T>>? OnErrorResume { get; }
 }
 
 public static class R3ToAsyncObservableExtensions
 {
-    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, PublishingConfiguration<T> publishingConfiguration)
+    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, BlockingBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
             throw new ArgumentNullException(nameof(@this));
-        if (publishingConfiguration is null)
-            throw new ArgumentNullException(nameof(publishingConfiguration));
+        if (backpressureStrategy is null)
+            throw new ArgumentNullException(nameof(backpressureStrategy));
 
-        return publishingConfiguration.InternalKind switch
-        {
-            PublishingConfiguration<T>.Kind.Blocking => CreateBlocking(@this),
-            _ => CreateNonBlocking(@this, publishingConfiguration)
-        };
+        return CreateBlocking(@this);
+    }
+
+    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, UnboundedChannelBackpressureStrategy backpressureStrategy)
+    {
+        if (@this is null)
+            throw new ArgumentNullException(nameof(@this));
+        if (backpressureStrategy is null)
+            throw new ArgumentNullException(nameof(backpressureStrategy));
+
+        return CreateNonBlocking(@this, backpressureStrategy.ToChannelStrategy<T>());
+    }
+
+    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, BoundedChannelBackpressureStrategy backpressureStrategy)
+    {
+        if (@this is null)
+            throw new ArgumentNullException(nameof(@this));
+        if (backpressureStrategy is null)
+            throw new ArgumentNullException(nameof(backpressureStrategy));
+
+        return CreateNonBlocking(@this, backpressureStrategy.ToChannelStrategy<T>());
+    }
+
+    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, ChannelBackpressureStrategy<T> backpressureStrategy)
+    {
+        if (@this is null)
+            throw new ArgumentNullException(nameof(@this));
+        if (backpressureStrategy is null)
+            throw new ArgumentNullException(nameof(backpressureStrategy));
+
+        return CreateNonBlocking(@this, backpressureStrategy);
     }
 
     static AsyncObservable<T> CreateBlocking<T>(Observable<T> source)
@@ -75,15 +176,15 @@ public static class R3ToAsyncObservableExtensions
         });
     }
 
-    static AsyncObservable<T> CreateNonBlocking<T>(Observable<T> source, PublishingConfiguration<T> publishingConfiguration)
+    static AsyncObservable<T> CreateNonBlocking<T>(Observable<T> source, ChannelBackpressureStrategy<T> backpressureStrategy)
     {
         return AsyncObservable.CreateAsBackgroundJob<T>(async (observer, cancellationToken) =>
         {
-            var channel = publishingConfiguration.ChannelFactory!();
+            var channel = backpressureStrategy.ChannelFactory();
 
             using var subscription = source.Subscribe(new ChannelObserver<T>(channel.Writer,
-                                                                             publishingConfiguration.OnNext!,
-                                                                             publishingConfiguration.OnErrorResume));
+                                                                             backpressureStrategy.OnNext,
+                                                                             backpressureStrategy.OnErrorResume));
 
             try
             {

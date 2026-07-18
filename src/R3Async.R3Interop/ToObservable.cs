@@ -5,48 +5,44 @@ using R3;
 
 namespace R3Async.R3Interop;
 
-public sealed class AsyncOperationMode
+public sealed class AsyncToSyncStrategy
 {
-    enum Kind
+    readonly Action<Exception>? _onException;
+
+    private AsyncToSyncStrategy(Action<Exception>? onException) => _onException = onException;
+
+    static readonly AsyncToSyncStrategy DefaultFireAndForget = new(null);
+    public static AsyncToSyncStrategy Blocking { get; } = new(null);
+
+    public static AsyncToSyncStrategy FireAndForget(Action<Exception>? onException = null) =>
+        onException is null ? DefaultFireAndForget : new(onException);
+
+    internal bool IsBlocking => ReferenceEquals(this, Blocking);
+
+    internal void Execute(ValueTask operation)
     {
-        WaitSynchronously,
-        Background
-    }
-
-    readonly Kind _kind;
-    readonly Action<Exception>? _exceptionHandler;
-
-    AsyncOperationMode(Kind kind, Action<Exception>? exceptionHandler)
-    {
-        _kind = kind;
-        _exceptionHandler = exceptionHandler;
-    }
-
-    public static AsyncOperationMode WaitSynchronously { get; } = new(Kind.WaitSynchronously, null);
-    public static AsyncOperationMode Background(Action<Exception>? exceptionHandler = null) => new(Kind.Background, exceptionHandler);
-
-    internal void Execute(Func<Task> operation)
-    {
-        switch (_kind)
+        if (IsBlocking)
         {
-            case Kind.WaitSynchronously:
-                operation().GetAwaiter().GetResult();
-                break;
-            case Kind.Background:
-                ExecuteInBackground(operation);
-                break;
+            if (operation.IsCompleted)
+                operation.GetAwaiter().GetResult();
+            else
+                operation.AsTask().GetAwaiter().GetResult();
+
+            return;
         }
+
+        ExecuteFireAndForget(operation);
     }
 
-    async void ExecuteInBackground(Func<Task> operation)
+    async void ExecuteFireAndForget(ValueTask operation)
     {
         try
         {
-            await operation();
+            await operation;
         }
         catch (Exception e)
         {
-            if (_exceptionHandler is null)
+            if (_onException is null)
             {
                 UnhandledExceptionHandler.OnUnhandledException(e);
                 return;
@@ -54,7 +50,7 @@ public sealed class AsyncOperationMode
 
             try
             {
-                _exceptionHandler(e);
+                _onException(e);
             }
             catch (Exception handlerException)
             {
@@ -66,33 +62,59 @@ public sealed class AsyncOperationMode
 
 public sealed class ToObservableConfiguration
 {
-    public static ToObservableConfiguration Default { get; } = new();
-
-    public AsyncOperationMode SubscribeMode { get; init; } = AsyncOperationMode.WaitSynchronously;
-    public AsyncOperationMode DisposeMode { get; init; } = AsyncOperationMode.WaitSynchronously;
+    public required AsyncToSyncStrategy SubscribeStrategy { get; init; } 
+    public required AsyncToSyncStrategy DisposeStrategy { get; init; }
 }
 
 public static class AsyncToR3ObservableExtensions
 {
-    public static Observable<T> ToObservable<T>(this AsyncObservable<T> @this, ToObservableConfiguration? configuration = null)
+    public static Observable<T> ToObservable<T>(this AsyncObservable<T> @this, ToObservableConfiguration configuration)
     {
         if (@this is null)
             throw new ArgumentNullException(nameof(@this));
 
-        return new AsyncToObservableAdapter<T>(@this, configuration ?? ToObservableConfiguration.Default);
+        return new AsyncToObservableAdapter<T>(@this, configuration);
     }
 
     sealed class AsyncToObservableAdapter<T>(AsyncObservable<T> source, ToObservableConfiguration configuration) : Observable<T>
     {
         protected override IDisposable SubscribeCore(Observer<T> observer)
         {
-            var cts = new CancellationTokenSource();
-            var subscriptionTask = source.SubscribeAsync(new ObserverAdapter<T>(observer), cts.Token).AsTask();
-
-            configuration.SubscribeMode.Execute(() => subscriptionTask);
-
-            return new SubscriptionDisposable(subscriptionTask, cts, configuration.DisposeMode);
+            return configuration.SubscribeStrategy.IsBlocking
+                ? SubscribeBlocking(observer)
+                : SubscribeFireAndForget(observer);
         }
+
+        IDisposable SubscribeBlocking(Observer<T> observer)
+        {
+            var subscriptionTask = source.SubscribeAsync(new ObserverAdapter<T>(observer), CancellationToken.None);
+            var subscription = subscriptionTask.IsCompletedSuccessfully
+                ? subscriptionTask.GetAwaiter().GetResult()
+                : subscriptionTask.AsTask().GetAwaiter().GetResult();
+
+            return new SubscribedDisposable(subscription, configuration.DisposeStrategy);
+        }
+
+        IDisposable SubscribeFireAndForget(Observer<T> observer)
+        {
+            var cts = new CancellationTokenSource();
+
+            ValueTask<IAsyncDisposable> subscriptionTask;
+            try
+            {
+                subscriptionTask = source.SubscribeAsync(new ObserverAdapter<T>(observer), cts.Token).Preserve();
+            }
+            catch (Exception e)
+            {
+                subscriptionTask = new(Task.FromException<IAsyncDisposable>(e));
+            }
+
+            configuration.SubscribeStrategy.Execute(AwaitSubscription(subscriptionTask));
+
+            return new PendingSubscriptionDisposable(subscriptionTask, cts, configuration.DisposeStrategy);
+        }
+
+        static async ValueTask AwaitSubscription(ValueTask<IAsyncDisposable> subscriptionTask) => await subscriptionTask;
     }
 
     sealed class ObserverAdapter<T>(Observer<T> observer) : AsyncObserver<T>
@@ -116,7 +138,22 @@ public static class AsyncToR3ObservableExtensions
         }
     }
 
-    sealed class SubscriptionDisposable(Task<IAsyncDisposable> subscriptionTask, CancellationTokenSource cts, AsyncOperationMode disposeMode) : IDisposable
+    sealed class SubscribedDisposable(IAsyncDisposable subscription, AsyncToSyncStrategy disposeStrategy) : IDisposable
+    {
+        int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            disposeStrategy.Execute(DisposeCoreAsync());
+        }
+
+        ValueTask DisposeCoreAsync() => subscription.DisposeAsync();
+    }
+
+    sealed class PendingSubscriptionDisposable(ValueTask<IAsyncDisposable> subscriptionTask, CancellationTokenSource cts, AsyncToSyncStrategy disposeStrategy) : IDisposable
     {
         int _disposed;
 
@@ -126,10 +163,10 @@ public static class AsyncToR3ObservableExtensions
                 return;
 
             cts.Cancel();
-            disposeMode.Execute(DisposeCoreAsync);
+            disposeStrategy.Execute(DisposeCoreAsync());
         }
 
-        async Task DisposeCoreAsync()
+        async ValueTask DisposeCoreAsync()
         {
             try
             {
