@@ -68,6 +68,13 @@ public sealed class ToObservableConfiguration
 
 public static class AsyncToR3ObservableExtensions
 {
+    /// <summary>
+    /// Converts an <see cref="AsyncObservable{T}"/> into an R3 <see cref="Observable{T}"/>. Since R3's Subscribe and
+    /// Dispose are synchronous while R3Async's are not, the configuration decides per operation how the async work is
+    /// consumed: <see cref="AsyncToSyncStrategy.Blocking"/> blocks the caller until it completes (exceptions propagate),
+    /// while <see cref="AsyncToSyncStrategy.FireAndForget"/> starts it without waiting and routes failures to its
+    /// optional onException callback (or the <see cref="UnhandledExceptionHandler"/>).
+    /// </summary>
     public static Observable<T> ToObservable<T>(this AsyncObservable<T> @this, ToObservableConfiguration configuration)
     {
         if (@this is null)

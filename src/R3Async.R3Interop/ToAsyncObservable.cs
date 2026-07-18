@@ -127,6 +127,11 @@ public sealed class ChannelBackpressureStrategy<T>
 
 public static class R3ToAsyncObservableExtensions
 {
+    /// <summary>
+    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> delivering each notification
+    /// synchronously on the emitting thread, which blocks until the async observer has finished processing it.
+    /// A slow consumer therefore slows down the source itself.
+    /// </summary>
     public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, BlockingBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
@@ -137,6 +142,10 @@ public static class R3ToAsyncObservableExtensions
         return CreateBlocking(@this);
     }
 
+    /// <summary>
+    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
+    /// an unbounded channel: the source is never blocked, and a background loop drains the buffer into the async observer.
+    /// </summary>
     public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, UnboundedChannelBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
@@ -147,6 +156,13 @@ public static class R3ToAsyncObservableExtensions
         return CreateNonBlocking(@this, backpressureStrategy.ToChannelStrategy<T>());
     }
 
+    /// <summary>
+    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
+    /// a bounded channel drained by a background loop. Values are written with <see cref="ChannelWriter{T}.TryWrite"/>,
+    /// so what happens when the buffer is full is governed by <see cref="BoundedChannelOptions.FullMode"/>: with drop modes
+    /// values are discarded accordingly, while with <see cref="BoundedChannelFullMode.Wait"/> (the default) the write simply
+    /// fails and the value is lost. Use <see cref="BackpressureStrategy.FromChannel{T}"/> with a custom onNext for waiting semantics.
+    /// </summary>
     public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, BoundedChannelBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
@@ -157,6 +173,11 @@ public static class R3ToAsyncObservableExtensions
         return CreateNonBlocking(@this, backpressureStrategy.ToChannelStrategy<T>());
     }
 
+    /// <summary>
+    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
+    /// a user-provided channel: the strategy supplies the channel, how values are written to it, and optionally how
+    /// OnErrorResume notifications are handled. A background loop drains the channel into the async observer.
+    /// </summary>
     public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, ChannelBackpressureStrategy<T> backpressureStrategy)
     {
         if (@this is null)
