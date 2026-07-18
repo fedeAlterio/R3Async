@@ -47,7 +47,25 @@ public class RefCountLazy<T>(Func<CancellationToken, ValueTask<AsyncDisposableVa
         public async ValueTask IncrementRefCount(CancellationToken cancellationToken)
         {
             _refCount++;
-            Entry ??= await valueFactory(cancellationToken);
+            if (Entry is not null) return;
+
+            try
+            {
+                Entry = await valueFactory(cancellationToken);
+            }
+            catch
+            {
+                // The factory failed, so no Reference is handed out for this increment and the
+                // count can never reach zero again. Drop the connection so the next GetAsync
+                // starts over with a fresh one.
+                _refCount--;
+                if (parent._connection == this)
+                {
+                    parent._connection = null;
+                }
+
+                throw;
+            }
         }
 
         public AsyncDisposableValue<T>? Entry { get; private set; }
