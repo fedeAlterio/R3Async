@@ -129,7 +129,13 @@ public static partial class AsyncObservable
         {
             lock (_disposeCts)
             {
-                if (_disposed) return;
+                if (_disposed)
+                {
+                    if (result?.Exception is not null and var exception)
+                        UnhandledExceptionHandler.OnUnhandledException(exception);
+                    return;
+                }
+
                 _disposed = true;
             }
 

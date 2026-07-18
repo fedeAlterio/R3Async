@@ -30,6 +30,39 @@ public class MulticastTest
     }
 
     [Fact]
+    public async Task Multicast_DoubleConnect_SecondHandleDisconnectsAndAllowsReconnect()
+    {
+        var subscribeCount = 0;
+        var disposeCount = 0;
+        var source = AsyncObservable.Create<int>((observer, token) =>
+        {
+            subscribeCount++;
+            return new ValueTask<IAsyncDisposable>(AsyncDisposable.Create(() => disposeCount++));
+        });
+
+        var multicast = source.Multicast(Subject.Create<int>());
+
+        var handle1 = await multicast.ConnectAsync(CancellationToken.None);
+        var handle2 = await multicast.ConnectAsync(CancellationToken.None);
+        subscribeCount.ShouldBe(1);
+
+        // The handle from a second connect must be a real disconnect handle.
+        await handle2.DisposeAsync();
+        disposeCount.ShouldBe(1);
+
+        // After disconnecting, the multicast must be reconnectable.
+        var handle3 = await multicast.ConnectAsync(CancellationToken.None);
+        subscribeCount.ShouldBe(2);
+
+        // A stale handle from the previous connection must not tear down the new one.
+        await handle1.DisposeAsync();
+        disposeCount.ShouldBe(1);
+
+        await handle3.DisposeAsync();
+        disposeCount.ShouldBe(2);
+    }
+
+    [Fact]
     public async Task Multicast_AfterConnect_SubscribersReceiveValues()
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

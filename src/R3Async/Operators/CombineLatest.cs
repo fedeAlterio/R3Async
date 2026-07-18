@@ -83,12 +83,16 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, cancellationToken);
                 }
@@ -114,12 +118,16 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, cancellationToken);
                 }
@@ -274,12 +282,17 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, cancellationToken);
                 }
@@ -305,12 +318,17 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, cancellationToken);
                 }
@@ -336,12 +354,17 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
                 lock (_disposeCts)
                 {
                     _val3 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, cancellationToken);
                 }
@@ -509,12 +532,18 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, cancellationToken);
                 }
@@ -540,12 +569,18 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, cancellationToken);
                 }
@@ -571,12 +606,18 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
                 lock (_disposeCts)
                 {
                     _val3 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, cancellationToken);
                 }
@@ -602,12 +643,18 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
                 lock (_disposeCts)
                 {
                     _val4 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, cancellationToken);
                 }
@@ -788,12 +835,19 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, cancellationToken);
                 }
@@ -819,12 +873,19 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, cancellationToken);
                 }
@@ -850,12 +911,19 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
                 lock (_disposeCts)
                 {
                     _val3 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, cancellationToken);
                 }
@@ -881,12 +949,19 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
                 lock (_disposeCts)
                 {
                     _val4 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, cancellationToken);
                 }
@@ -912,12 +987,19 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
                 lock (_disposeCts)
                 {
                     _val5 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, cancellationToken);
                 }
@@ -1111,12 +1193,20 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, cancellationToken);
                 }
@@ -1142,12 +1232,20 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, cancellationToken);
                 }
@@ -1173,12 +1271,20 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
                 lock (_disposeCts)
                 {
                     _val3 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, cancellationToken);
                 }
@@ -1204,12 +1310,20 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
                 lock (_disposeCts)
                 {
                     _val4 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, cancellationToken);
                 }
@@ -1235,12 +1349,20 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
                 lock (_disposeCts)
                 {
                     _val5 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, cancellationToken);
                 }
@@ -1266,12 +1388,20 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_6(T6 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
                 lock (_disposeCts)
                 {
                     _val6 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, cancellationToken);
                 }
@@ -1478,12 +1608,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1509,12 +1648,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1540,12 +1688,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val3 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1571,12 +1728,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val4 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1602,12 +1768,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val5 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1633,12 +1808,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_6(T6 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val6 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1664,12 +1848,21 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_7(T7 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
                 lock (_disposeCts)
                 {
                     _val7 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, cancellationToken);
                 }
@@ -1889,12 +2082,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_1(T1 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val1 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -1920,12 +2123,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_2(T2 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val2 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -1951,12 +2164,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_3(T3 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val3 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -1982,12 +2205,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_4(T4 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val4 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -2013,12 +2246,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_5(T5 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val5 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -2044,12 +2287,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_6(T6 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val6 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -2075,12 +2328,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_7(T7 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val7 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }
@@ -2106,12 +2369,22 @@ public static partial class AsyncObservable
 
             ValueTask OnNext_8(T8 value, CancellationToken cancellationToken)
             {
+                bool hasAll;
+                T1 v1 = default!;
+                T2 v2 = default!;
+                T3 v3 = default!;
+                T4 v4 = default!;
+                T5 v5 = default!;
+                T6 v6 = default!;
+                T7 v7 = default!;
+                T8 v8 = default!;
                 lock (_disposeCts)
                 {
                     _val8 = new(value);
+                    hasAll = _val1.TryGetValue(out v1) && _val2.TryGetValue(out v2) && _val3.TryGetValue(out v3) && _val4.TryGetValue(out v4) && _val5.TryGetValue(out v5) && _val6.TryGetValue(out v6) && _val7.TryGetValue(out v7) && _val8.TryGetValue(out v8);
                 }
 
-                if (_val1.TryGetValue(out var v1) && _val2.TryGetValue(out var v2) && _val3.TryGetValue(out var v3) && _val4.TryGetValue(out var v4) && _val5.TryGetValue(out var v5) && _val6.TryGetValue(out var v6) && _val7.TryGetValue(out var v7) && _val8.TryGetValue(out var v8))
+                if (hasAll)
                 {
                     return OnNextCombined(v1, v2, v3, v4, v5, v6, v7, v8, cancellationToken);
                 }

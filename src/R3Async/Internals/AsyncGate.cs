@@ -1,6 +1,10 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT License.
-// See the LICENSE file in the project root for more information. 
+// Inspired by AsyncGate from dotnet/reactive:
+// https://github.com/dotnet/reactive/blob/main/AsyncRx.NET/System.Reactive.Async/Threading/AsyncGate.cs
+//
+// One difference: reentrancy is validated with a LockOwner token instead of a bare AsyncLocal count.
+// A flow is treated as reentrant only while its token is the gate's current holder, so a flow forked
+// while the gate was held stops bypassing the gate
+// as soon as the holder releases it.
 
 using System;
 using System.Diagnostics;
@@ -13,54 +17,70 @@ namespace R3Async.Internals
     {
         private readonly object _gate = new();
         private readonly SemaphoreSlim _semaphore = new(1, 1);
-        private readonly AsyncLocal<int> _recursionCount = new();
+        private readonly AsyncLocal<LockOwner?> _owner = new();
+        private LockOwner? _currentOwner;
 
         [DebuggerStepThrough]
         public ValueTask<Releaser> LockAsync()
         {
-            var shouldAcquire = false;
+            LockOwner newOwner;
 
             lock (_gate)
             {
-                if (_recursionCount.Value == 0)
+                var owner = _owner.Value;
+               
+                if (owner is not null && ReferenceEquals(owner, _currentOwner))
                 {
-                    shouldAcquire = true;
-                    _recursionCount.Value = 1;
+                    owner.RecursionCount++;
+                    return new ValueTask<Releaser>(new Releaser(this, owner));
                 }
-                else
-                {
-                    _recursionCount.Value++;
-                }
+
+                newOwner = new LockOwner();
+                _owner.Value = newOwner;
             }
 
-            if (shouldAcquire)
+            return new ValueTask<Releaser>(_semaphore.WaitAsync().ContinueWith(_ =>
             {
-                return new ValueTask<Releaser>(_semaphore.WaitAsync().ContinueWith(_ => new Releaser(this)));
-            }
+                lock (_gate)
+                {
+                    _currentOwner = newOwner;
+                }
 
-            return new ValueTask<Releaser>(new Releaser(this));
+                return new Releaser(this, newOwner);
+            }));
         }
 
-        private void Release()
+        private void Release(LockOwner owner)
         {
             lock (_gate)
             {
-                Debug.Assert(_recursionCount.Value > 0);
+                Debug.Assert(owner.RecursionCount > 0);
 
-                if (--_recursionCount.Value == 0)
+                if (--owner.RecursionCount == 0)
                 {
+                    _currentOwner = null;
                     _semaphore.Release();
                 }
             }
         }
 
+        internal sealed class LockOwner
+        {
+            public int RecursionCount = 1;
+        }
+
         public readonly struct Releaser : IDisposable
         {
             private readonly AsyncGate _parent;
+            private readonly LockOwner _owner;
 
-            public Releaser(AsyncGate parent) => _parent = parent;
+            internal Releaser(AsyncGate parent, LockOwner owner)
+            {
+                _parent = parent;
+                _owner = owner;
+            }
 
-            public void Dispose() => _parent.Release();
+            public void Dispose() => _parent.Release(_owner);
         }
     }
 }
