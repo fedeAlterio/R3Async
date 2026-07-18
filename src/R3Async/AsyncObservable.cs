@@ -28,10 +28,19 @@ public abstract class AsyncObservable<T>
 
 public abstract class AsyncObserver<T> : IAsyncDisposable
 {
-    readonly AsyncLocal<int> _reentrantCallsCount = new();
+    // Same owner-token scheme as AsyncGate: the flow-local token is only a claim, and it counts as
+    // the in-flight call chain only while it reference-equals _currentCall. A token inherited by a
+    // flow forked during a call goes stale as soon as the chain unwinds, so later calls from that
+    // flow are neither treated as reentrant nor misreported as concurrent.
+    readonly AsyncLocal<ObserverCallToken?> _callToken = new();
     readonly CancellationTokenSource _disposeCts = new();
-    int _callsCount;
+    ObserverCallToken? _currentCall;
     TaskCompletionSource<object?>? _allCallsCompletedTcs;
+
+    sealed class ObserverCallToken
+    {
+        public int Count = 1;
+    }
     internal bool IsDisposed => _disposeCts.IsCancellationRequested;
     IAsyncDisposable? _sourceSubscription;
     internal ValueTask SetSourceSubscriptionAsync(IAsyncDisposable? value) => SingleAssignmentAsyncDisposable.SetDisposableAsync(ref _sourceSubscription, value);
@@ -65,7 +74,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     [DebuggerStepThrough]
     bool TryEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
     {
-        lock (_reentrantCallsCount)
+        lock (_callToken)
         {
             if (_disposeCts.IsCancellationRequested || cancellationToken.IsCancellationRequested)
             {
@@ -73,16 +82,23 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
                 return false;
             }
 
-            int reentrantCallsCount = _reentrantCallsCount.Value;
-            if (_callsCount != reentrantCallsCount)
+            var currentCall = _currentCall;
+            if (currentCall is null)
+            {
+                var token = new ObserverCallToken();
+                _currentCall = token;
+                _callToken.Value = token;
+            }
+            else if (ReferenceEquals(_callToken.Value, currentCall))
+            {
+                currentCall.Count++;
+            }
+            else
             {
                 UnhandledExceptionHandler.OnUnhandledException(new ConcurrentObserverCallsException());
                 linkedCts = null;
                 return false;
             }
-
-            _callsCount++;
-            _reentrantCallsCount.Value = reentrantCallsCount + 1;
 
             linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
             return true;
@@ -92,15 +108,24 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     [DebuggerStepThrough]
     bool ExitOnSomethingCall()
     {
-        lock (_reentrantCallsCount)
+        lock (_callToken)
         {
-            _callsCount--;
-            int reentrantCallsCount = --_reentrantCallsCount.Value;
-            Debug.Assert(reentrantCallsCount >= 0);
-            Debug.Assert(_callsCount == reentrantCallsCount);
-            if (_allCallsCompletedTcs is not null)
+            var currentCall = _currentCall;
+            Debug.Assert(currentCall is not null);
+            Debug.Assert(currentCall.Count > 0);
+
+            if (--currentCall.Count == 0)
             {
-                _allCallsCompletedTcs.SetResult(null);
+                _currentCall = null;
+                if (_allCallsCompletedTcs is not null)
+                {
+                    _allCallsCompletedTcs.SetResult(null);
+                    return false;
+                }
+            }
+            else if (_allCallsCompletedTcs is not null)
+            {
+                // A disposer is waiting for the chain to unwind; the last exit will signal it.
                 return false;
             }
         }
@@ -179,12 +204,15 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Task? allOnSomethingCallsCompleted = null;
-        lock (_reentrantCallsCount)
+        lock (_callToken)
         {
             if (_disposeCts.IsCancellationRequested) return;
 
             _disposeCts.Cancel();
-            if (_reentrantCallsCount.Value == 0 && _callsCount > 0)
+
+            // Wait for the in-flight call chain unless this flow is part of it (disposing from
+            // within a call must not deadlock on itself).
+            if (_currentCall is not null && !ReferenceEquals(_callToken.Value, _currentCall))
             {
                 _allCallsCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 allOnSomethingCallsCompleted = _allCallsCompletedTcs.Task;
