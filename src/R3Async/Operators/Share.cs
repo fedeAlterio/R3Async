@@ -62,11 +62,25 @@ public static partial class AsyncObservable
                     {
                         connection = new ShareConnection(this);
                         _connection = connection;
-                        await _parent._source.SubscribeAsync(connection, cancellationToken);
+                        var disposable = await SubscribeToSubject(connection, observer, cancellationToken);
+                        try
+                        {
+                            await _parent._source.SubscribeAsync(connection, cancellationToken);
+                        }
+                        catch
+                        {
+                            if (ReferenceEquals(_connection, connection))
+                            {
+                                _connection = null;
+                            }
+                            await disposable.DisposeAsync();
+                            throw;
+                        }
+
+                        return disposable;
                     }
 
-                    var disposable = await SubscribeToSubject(connection, observer, cancellationToken);
-                    return disposable;
+                    return await SubscribeToSubject(connection, observer, cancellationToken);
                 }
             }
 

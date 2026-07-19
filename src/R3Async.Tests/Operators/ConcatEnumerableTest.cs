@@ -52,6 +52,41 @@ public class ConcatEnumerableTest
     }
 
     [Fact]
+    public async Task ConcatEnumerable_FirstInnerCompletingSynchronouslyDuringSubscribe_ContinuesWithNext()
+    {
+        var syncInner = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            await observer.OnNextAsync(1, token);
+            await observer.OnCompletedAsync(Result.Success);
+            return AsyncDisposable.Empty;
+        });
+
+        var releaseSecond = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var second = AsyncObservable.CreateAsBackgroundJob<int>(async (observer, token) =>
+        {
+            await releaseSecond.Task.WaitAsync(token);
+            await observer.OnNextAsync(2, token);
+            await observer.OnCompletedAsync(Result.Success);
+        });
+
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await new[] { syncInner, second }.Concat().SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async result => completedTcs.TrySetResult(result.IsSuccess),
+            CancellationToken.None);
+
+        releaseSecond.TrySetResult();
+
+        var completedInTime = await Task.WhenAny(completedTcs.Task, Task.Delay(TimeSpan.FromSeconds(5))) == completedTcs.Task;
+        completedInTime.ShouldBeTrue("Concat must continue with the next observable when an inner completes synchronously during subscribe");
+        (await completedTcs.Task).ShouldBeTrue();
+        results.ShouldBe(new[] { 1, 2 });
+    }
+
+    [Fact]
     public async Task ConcatEnumerable_Empty()
     {
         var concat = new AsyncObservable<int>[0].Concat();

@@ -30,7 +30,15 @@ public static partial class AsyncObservable
                 {
                     SingleAssignmentAsyncDisposable connection = new();
                     _connection = connection;
-                    await connection.SetDisposableAsync(await source.ConnectAsync(cancellationToken));
+                    try
+                    {
+                        await connection.SetDisposableAsync(await source.ConnectAsync(cancellationToken));
+                    }
+                    catch
+                    {
+                        await subcription.DisposeAsync();
+                        throw;
+                    }
                 }
                 return subcription;
             }

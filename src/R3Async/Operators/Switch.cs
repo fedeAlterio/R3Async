@@ -38,6 +38,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
         IAsyncDisposable? _currentInnerSubscription;
+        SwitchInnerObserver? _currentInnerObserver;
 
         readonly object _gate = new();
         readonly AsyncGate _observerOnSomethingGate = new();
@@ -59,16 +60,18 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         public ValueTask OnNextOuterAsync(AsyncObservable<T> inner)
         {
             IAsyncDisposable? previousSubscription;
+            var innerObserver = new SwitchInnerObserver(this);
             lock (_gate)
             {
                 previousSubscription = _currentInnerSubscription;
                 _currentInnerSubscription = null;
+                _currentInnerObserver = innerObserver;
             }
 
-            return SubscribeToInnerAfterDisposingPrevious(inner, previousSubscription);
+            return SubscribeToInnerAfterDisposingPrevious(inner, innerObserver, previousSubscription);
         }
 
-        async ValueTask SubscribeToInnerAfterDisposingPrevious(AsyncObservable<T> inner, IAsyncDisposable? previousSubscription)
+        async ValueTask SubscribeToInnerAfterDisposingPrevious(AsyncObservable<T> inner, SwitchInnerObserver innerObserver, IAsyncDisposable? previousSubscription)
         {
             try
             {
@@ -85,12 +88,13 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                     }
                 }
 
-                var innerObserver = new SwitchInnerObserver(this);
                 var innerSubscription = await inner.SubscribeAsync(innerObserver, _disposeCancellationToken);
                 bool shouldDispose = false;
                 lock (_gate)
                 {
-                    if (!_disposed)
+                    // Store the subscription only if this inner is still the one switched to and it
+                    // has not already completed while subscribing.
+                    if (!_disposed && ReferenceEquals(_currentInnerObserver, innerObserver))
                     {
                         _currentInnerSubscription = innerSubscription;
                     }
@@ -128,11 +132,17 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
             return shouldComplete ? CompleteAsync(Result.Success) : default;
         }
 
-        public ValueTask OnCompletedInnerAsync( Result result)
+        ValueTask OnCompletedInnerAsync(SwitchInnerObserver observer, Result result)
         {
             Result? actualResult = null;
             lock (_gate)
             {
+                // A completion from an inner we already switched away from must not affect the
+                // current one.
+                if (!ReferenceEquals(_currentInnerObserver, observer))
+                    return default;
+
+                _currentInnerObserver = null;
                 _currentInnerSubscription = null;
                 if (result.IsFailure)
                 {
@@ -216,7 +226,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
             protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
                 => subscription.OnErrorInnerAsync(error, cancellationToken);
             protected override ValueTask OnCompletedAsyncCore(Result result)
-                => subscription.OnCompletedInnerAsync(result);
+                => subscription.OnCompletedInnerAsync(this, result);
         }
     }
 }

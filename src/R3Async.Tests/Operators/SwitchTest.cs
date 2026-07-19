@@ -144,6 +144,39 @@ public class SwitchTest
     }
 
     [Fact]
+    public async Task Switch_InnerCompletingSynchronouslyDuringSubscribe_StillCompletes()
+    {
+        // The inner emits and completes synchronously, inside its own SubscribeAsync call.
+        var inner = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            await observer.OnNextAsync(1, token);
+            await observer.OnCompletedAsync(Result.Success);
+            return AsyncDisposable.Empty;
+        });
+
+        var outer = AsyncObservable.Create<AsyncObservable<int>>(async (observer, token) =>
+        {
+            await observer.OnNextAsync(inner, token);
+            await observer.OnCompletedAsync(Result.Success);
+            return AsyncDisposable.Empty;
+        });
+
+        var results = new List<int>();
+        var completedTcs = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await outer.Switch().SubscribeAsync(
+            async (x, token) => results.Add(x),
+            async (ex, token) => { },
+            async r => completedTcs.TrySetResult(r),
+            CancellationToken.None);
+
+        var completedInTime = await Task.WhenAny(completedTcs.Task, Task.Delay(TimeSpan.FromSeconds(5))) == completedTcs.Task;
+        completedInTime.ShouldBeTrue("Switch must complete once the outer has completed and its last inner already completed during subscribe");
+        (await completedTcs.Task).IsSuccess.ShouldBeTrue();
+        results.ShouldBe(new[] { 1 });
+    }
+
+    [Fact]
     public async Task Switch_DisposeStopsCurrentInner()
     {
         var tcsStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

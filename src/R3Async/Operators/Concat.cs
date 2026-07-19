@@ -36,7 +36,9 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
     sealed class ConcatEnumerableSubscription : IAsyncDisposable
     {
         readonly IEnumerator<AsyncObservable<T>> _enumerator;
-        readonly SerialAsyncDisposable _innerDisposable = new();
+        readonly object _gate = new();
+        IAsyncDisposable? _innerSubscription;
+        int _generation;
         readonly CancellationTokenSource _cts = new();
         readonly CancellationToken _disposedCancellationToken;
         int _disposed;
@@ -56,13 +58,35 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
                 if (_enumerator.MoveNext())
                 {
                     var current = _enumerator.Current;
+                    int generation;
+                    lock (_gate)
+                    {
+                        generation = ++_generation;
+                    }
+
                     var subscription = await current!.SubscribeAsync(OnInnerNextAsync, OnInnerErrorResumeAsync,
-                                                                     result => result.IsFailure 
+                                                                     result => result.IsFailure
                                                                          ? CompleteAsync(result)
                                                                          : SubscribeNextAsync(),
                                                                      _disposedCancellationToken);
 
-                    await _innerDisposable.SetDisposableAsync(subscription);
+                    IAsyncDisposable? toDispose = null;
+                    lock (_gate)
+                    {
+                        if (Volatile.Read(ref _disposed) == 0 && generation == _generation)
+                        {
+                            _innerSubscription = subscription;
+                        }
+                        else
+                        {
+                            toDispose = subscription;
+                        }
+                    }
+
+                    if (toDispose is not null)
+                    {
+                        await toDispose.DisposeAsync();
+                    }
                 }
                 else
                 {
@@ -100,7 +124,18 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
             }
             
             _cts.Cancel();
-            await _innerDisposable.DisposeAsync();
+            IAsyncDisposable? innerSubscription;
+            lock (_gate)
+            {
+                innerSubscription = _innerSubscription;
+                _innerSubscription = null;
+            }
+
+            if (innerSubscription is not null)
+            {
+                await innerSubscription.DisposeAsync();
+            }
+
             if (result is not null)
             {
                 await _observer.OnCompletedAsync(result.Value);
@@ -137,7 +172,8 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposedCancellationToken;
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
-        readonly SerialAsyncDisposable _innerSubscription = new();
+        IAsyncDisposable? _innerSubscription;
+        int _generation;
         readonly AsyncObserver<T> _observer;
         readonly AsyncGate _observerOnSomethingGate = new();
         bool _outerCompleted;
@@ -196,8 +232,30 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         {
             try
             {
+                int generation;
+                lock (_buffer)
+                {
+                    generation = ++_generation;
+                }
+
                 var innerSubscription = await currentInner.SubscribeAsync(new ConcatInnerObserver(this), _disposedCancellationToken);
-                await _innerSubscription.SetDisposableAsync(innerSubscription);
+                IAsyncDisposable? toDispose = null;
+                lock (_buffer)
+                {
+                    if (Volatile.Read(ref _disposed) == 0 && generation == _generation)
+                    {
+                        _innerSubscription = innerSubscription;
+                    }
+                    else
+                    {
+                        toDispose = innerSubscription;
+                    }
+                }
+
+                if (toDispose is not null)
+                {
+                    await toDispose.DisposeAsync();
+                }
             }
             catch (Exception e)
             {
@@ -243,7 +301,17 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
             }
 
             _disposeCts.Cancel();
-            await _innerSubscription.DisposeAsync();
+            IAsyncDisposable? innerSubscription;
+            lock (_buffer)
+            {
+                innerSubscription = _innerSubscription;
+                _innerSubscription = null;
+            }
+
+            if (innerSubscription is not null)
+            {
+                await innerSubscription.DisposeAsync();
+            }
             await _outerDisposable.DisposeAsync();
             if (result is not null)
             {

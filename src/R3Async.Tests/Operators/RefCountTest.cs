@@ -82,6 +82,29 @@ public class RefCountTest
     }
 
     [Fact]
+    public async Task ConnectFailure_ReleasesRefCount_SoALaterSubscriberCanReconnect()
+    {
+        var subscribeAttempts = 0;
+        var source = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            if (Interlocked.Increment(ref subscribeAttempts) == 1)
+                throw new InvalidOperationException("connect fails");
+
+            await observer.OnNextAsync(42, token);
+            return AsyncDisposable.Empty;
+        });
+
+        var refCounted = source.Publish().RefCount();
+
+        await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await refCounted.SubscribeAsync(async (x, token) => { }, CancellationToken.None));
+
+        var results = new List<int>();
+        await using var sub = await refCounted.SubscribeAsync(async (x, token) => results.Add(x), CancellationToken.None);
+        results.ShouldBe(new[] { 42 });
+    }
+
+    [Fact]
     public async Task RefCountWithStatelessBehavior_SubscribeAfterReset_ReceivesInitialValue()
     {
         var subject = Subject.Create<int>();

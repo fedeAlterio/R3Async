@@ -30,6 +30,29 @@ public class ShareTest
     }
 
     [Fact]
+    public async Task Share_SourceSubscribeFailure_DoesNotPoisonLaterSubscribers()
+    {
+        var subscribeAttempts = 0;
+        var source = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            if (Interlocked.Increment(ref subscribeAttempts) == 1)
+                throw new InvalidOperationException("subscribe fails");
+
+            await observer.OnNextAsync(42, token);
+            return AsyncDisposable.Empty;
+        });
+
+        var shared = source.Share();
+
+        await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await shared.SubscribeAsync(async (x, token) => { }, CancellationToken.None));
+
+        var results = new List<int>();
+        await using var sub = await shared.SubscribeAsync(async (x, token) => results.Add(x), CancellationToken.None);
+        results.ShouldBe(new[] { 42 });
+    }
+
+    [Fact]
     public async Task Share_ResetOnRefCountZero_ResubscribesToSource()
     {
         var subscriptionCount = 0;
