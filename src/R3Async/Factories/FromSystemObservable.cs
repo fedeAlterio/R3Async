@@ -2,18 +2,17 @@ using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using R3;
 
-namespace R3Async.R3Interop;
+namespace R3Async;
 
-public static class R3ToAsyncObservableExtensions
+public static class SystemToAsyncObservableExtensions
 {
     /// <summary>
-    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> delivering each notification
+    /// Converts a <see cref="IObservable{T}"/> into an <see cref="AsyncObservable{T}"/> delivering each notification
     /// synchronously on the emitting thread, which blocks until the async observer has finished processing it.
-    /// A slow consumer therefore slows down the source itself.
+    /// A slow consumer therefore slows down the source itself. OnError is mapped to a failure completion.
     /// </summary>
-    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, BlockingBackpressureStrategy backpressureStrategy)
+    public static AsyncObservable<T> ToAsyncObservable<T>(this IObservable<T> @this, BlockingBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
             throw new ArgumentNullException(nameof(@this));
@@ -24,10 +23,11 @@ public static class R3ToAsyncObservableExtensions
     }
 
     /// <summary>
-    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
+    /// Converts a <see cref="IObservable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
     /// an unbounded channel: the source is never blocked, and a background loop drains the buffer into the async observer.
+    /// OnError is mapped to a failure completion.
     /// </summary>
-    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, UnboundedChannelBackpressureStrategy backpressureStrategy)
+    public static AsyncObservable<T> ToAsyncObservable<T>(this IObservable<T> @this, UnboundedChannelBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
             throw new ArgumentNullException(nameof(@this));
@@ -38,13 +38,14 @@ public static class R3ToAsyncObservableExtensions
     }
 
     /// <summary>
-    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
+    /// Converts a <see cref="IObservable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
     /// a bounded channel drained by a background loop. Values are written with <see cref="ChannelWriter{T}.TryWrite"/>,
     /// so what happens when the buffer is full is governed by <see cref="BoundedChannelOptions.FullMode"/>: with drop modes
     /// values are discarded accordingly, while with <see cref="BoundedChannelFullMode.Wait"/> (the default) the write simply
-    /// fails and the value is lost. Use <see cref="BackpressureStrategy.FromChannel{T}"/> with a custom onNext for waiting semantics.
+    /// fails and the value is lost. Use <see cref="BackpressureStrategy.FromChannel{T}"/> with a custom onNext for waiting
+    /// semantics. OnError is mapped to a failure completion.
     /// </summary>
-    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, BoundedChannelBackpressureStrategy backpressureStrategy)
+    public static AsyncObservable<T> ToAsyncObservable<T>(this IObservable<T> @this, BoundedChannelBackpressureStrategy backpressureStrategy)
     {
         if (@this is null)
             throw new ArgumentNullException(nameof(@this));
@@ -55,11 +56,12 @@ public static class R3ToAsyncObservableExtensions
     }
 
     /// <summary>
-    /// Converts an R3 <see cref="Observable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
-    /// a user-provided channel: the strategy supplies the channel, how values are written to it, and optionally how
-    /// OnErrorResume notifications are handled. A background loop drains the channel into the async observer.
+    /// Converts a <see cref="IObservable{T}"/> into an <see cref="AsyncObservable{T}"/> buffering notifications through
+    /// a user-provided channel: the strategy supplies the channel and how values are written to it. A background loop
+    /// drains the channel into the async observer. The IObservable grammar has no resumable-error channel, so the
+    /// strategy's onErrorResume hook is never invoked; OnError is mapped to a failure completion.
     /// </summary>
-    public static AsyncObservable<T> ToAsyncObservable<T>(this Observable<T> @this, ChannelBackpressureStrategy<T> backpressureStrategy)
+    public static AsyncObservable<T> ToAsyncObservable<T>(this IObservable<T> @this, ChannelBackpressureStrategy<T> backpressureStrategy)
     {
         if (@this is null)
             throw new ArgumentNullException(nameof(@this));
@@ -69,7 +71,7 @@ public static class R3ToAsyncObservableExtensions
         return CreateNonBlocking(@this, backpressureStrategy);
     }
 
-    static AsyncObservable<T> CreateBlocking<T>(Observable<T> source)
+    static AsyncObservable<T> CreateBlocking<T>(IObservable<T> source)
     {
         return AsyncObservable.Create<T>((observer, cancellationToken) =>
         {
@@ -78,15 +80,13 @@ public static class R3ToAsyncObservableExtensions
         });
     }
 
-    static AsyncObservable<T> CreateNonBlocking<T>(Observable<T> source, ChannelBackpressureStrategy<T> backpressureStrategy)
+    static AsyncObservable<T> CreateNonBlocking<T>(IObservable<T> source, ChannelBackpressureStrategy<T> backpressureStrategy)
     {
         return AsyncObservable.CreateAsBackgroundJob<T>(async (observer, cancellationToken) =>
         {
             var channel = backpressureStrategy.ChannelFactory();
 
-            using var subscription = source.Subscribe(new ChannelObserver<T>(channel.Writer,
-                                                                             backpressureStrategy.OnNext,
-                                                                             backpressureStrategy.OnErrorResume));
+            using var subscription = source.Subscribe(new ChannelObserver<T>(channel.Writer, backpressureStrategy.OnNext));
 
             try
             {
@@ -111,13 +111,13 @@ public static class R3ToAsyncObservableExtensions
         }, startSynchronously: true);
     }
 
-    sealed class BlockingObserver<T>(AsyncObserver<T> observer) : Observer<T>
+    sealed class BlockingObserver<T>(AsyncObserver<T> observer) : IObserver<T>
     {
-        protected override void OnNextCore(T value) => WaitSynchronously(observer.OnNextAsync(value, CancellationToken.None));
+        public void OnNext(T value) => WaitSynchronously(observer.OnNextAsync(value, CancellationToken.None));
 
-        protected override void OnErrorResumeCore(Exception error) => WaitSynchronously(observer.OnErrorResumeAsync(error, CancellationToken.None));
+        public void OnError(Exception error) => WaitSynchronously(observer.OnCompletedAsync(Result.Failure(error)));
 
-        protected override void OnCompletedCore(R3.Result result) => WaitSynchronously(observer.OnCompletedAsync(ToAsyncResult(result)));
+        public void OnCompleted() => WaitSynchronously(observer.OnCompletedAsync(Result.Success));
 
         static void WaitSynchronously(ValueTask task)
         {
@@ -137,25 +137,12 @@ public static class R3ToAsyncObservableExtensions
         }
     }
 
-    sealed class ChannelObserver<T>(ChannelWriter<T> writer,
-                                    Action<T, ChannelWriter<T>> onNext,
-                                    Action<Exception, ChannelWriter<T>>? onErrorResume) : Observer<T>
+    sealed class ChannelObserver<T>(ChannelWriter<T> writer, Action<T, ChannelWriter<T>> onNext) : IObserver<T>
     {
-        protected override void OnNextCore(T value) => onNext(value, writer);
+        public void OnNext(T value) => onNext(value, writer);
 
-        protected override void OnErrorResumeCore(Exception error)
-        {
-            if (onErrorResume is null)
-            {
-                UnhandledExceptionHandler.OnUnhandledException(error);
-                return;
-            }
+        public void OnError(Exception error) => writer.TryComplete(error);
 
-            onErrorResume(error, writer);
-        }
-
-        protected override void OnCompletedCore(R3.Result result) => writer.TryComplete(result.IsFailure ? result.Exception : null);
+        public void OnCompleted() => writer.TryComplete();
     }
-
-    static Result ToAsyncResult(R3.Result result) => result.IsSuccess ? Result.Success : Result.Failure(result.Exception);
 }
