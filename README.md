@@ -889,6 +889,55 @@ UnhandledExceptionHandler.Register(exception =>
 
 Note: `OperationCanceledException` is automatically ignored by the unhandled exception handler.
 
+## System.IObservable Interop
+
+The core package can convert between `System.IObservable<T>` and `AsyncObservable<T>` in both directions, with no extra package required. Since `IObservable<T>` is synchronous while `AsyncObservable<T>` is not, both directions require you to state explicitly how the sync/async boundary is handled.
+
+### IObservable<T> → AsyncObservable<T>
+
+`ToAsyncObservable` converts a `System.IObservable<T>` into an `AsyncObservable<T>`. Since the source pushes values synchronously while the async observer may be slow, you must choose a `BackpressureStrategy`:
+
+```csharp
+// Blocking: each notification is delivered synchronously on the emitting thread,
+// which blocks until the async observer finishes processing it
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.Blocking);
+
+// Unbounded channel: values are buffered without limit and consumed by a background loop
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromUnboundedChannel());
+
+// Bounded channel: values are buffered up to a capacity
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromBoundedChannel(
+    new BoundedChannelOptions(16) { FullMode = BoundedChannelFullMode.DropOldest }));
+
+// Full control: provide the channel and how values are written to it
+var asyncObservable = observable.ToAsyncObservable(BackpressureStrategy.FromChannel(
+    () => Channel.CreateBounded<int>(2),
+    onNext: (value, writer) => writer.WriteAsync(value).AsTask().GetAwaiter().GetResult()));
+```
+
+Notes:
+
+- Channel-based strategies write with `TryWrite` by default, so with a bounded channel using `FullMode = Wait` (the default) values are **silently dropped** when the buffer is full. Use a drop mode, or a custom `onNext` via `FromChannel`, to get different semantics.
+- The `IObservable<T>` grammar has no resumable-error channel: `OnError` is mapped to a failure completion (`Result.Failure`), terminating the stream.
+
+### AsyncObservable<T> → IObservable<T>
+
+`ToSystemObservable` converts an `AsyncObservable<T>` into a `System.IObservable<T>`. `IObservable`'s `Subscribe`/`Dispose` are synchronous while R3Async's are not, so you must decide how each async operation is consumed from the sync world via an `AsyncToSyncStrategy`:
+
+```csharp
+var observable = asyncObservable.ToSystemObservable(new ToObservableConfiguration
+{
+    // Blocking: block the caller until the async operation completes (exceptions propagate)
+    SubscribeStrategy = AsyncToSyncStrategy.Blocking,
+
+    // FireAndForget: start the operation without waiting; failures go to the
+    // optional onException callback (or the UnhandledExceptionHandler)
+    DisposeStrategy = AsyncToSyncStrategy.FireAndForget(onException: ex => Console.WriteLine(ex))
+});
+```
+
+Since `IObserver<T>` has no resumable-error channel, an `OnErrorResume` notification from the source is delivered as a terminal `OnError` and the subscription is torn down. A failure completion is likewise delivered as `OnError`; a success completion as `OnCompleted`.
+
 ## R3 Interop
 
 The [R3Async.R3Interop](https://www.nuget.org/packages/R3Async.R3Interop) package bridges R3Async with [R3](https://github.com/Cysharp/R3), converting between the synchronous `Observable<T>` and the asynchronous `AsyncObservable<T>` in both directions.
@@ -896,6 +945,8 @@ The [R3Async.R3Interop](https://www.nuget.org/packages/R3Async.R3Interop) packag
 ```csharp
 using R3Async.R3Interop;
 ```
+
+The configuration types (`BackpressureStrategy`, `AsyncToSyncStrategy`, `ToObservableConfiguration`) live in the core `R3Async` package and are shared with the `System.IObservable` interop described above; the conversions work the same way in both.
 
 ### Observable<T> → AsyncObservable<T>
 
