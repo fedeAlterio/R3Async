@@ -304,7 +304,7 @@ public static partial class AsyncObservable
 
                     try
                     {
-                        await tcs.Task.WaitAsync(Timeout.InfiniteTimeSpan, _disposeCancellationToken);
+                        await tcs.Task.WaitAsync(System.Threading.Timeout.InfiniteTimeSpan, _disposeCancellationToken);
                         try
                         {
                             await disposable.DisposeAsync();
@@ -448,7 +448,7 @@ public static partial class AsyncObservable
                 {
                     try
                     {
-                        await task.WaitAsync(Timeout.InfiniteTimeSpan, _disposeCancellationToken);
+                        await task.WaitAsync(System.Threading.Timeout.InfiniteTimeSpan, _disposeCancellationToken);
                         await ForwardOnCompletedAsync(Result.Success);
                     }
                     catch (Exception e)

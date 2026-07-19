@@ -22,7 +22,7 @@ public static partial class AsyncObservable
                 else
                 {
                     var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    await using var _ = timeProvider.CreateTimer(x => ((TaskCompletionSource<bool>)x!).TrySetResult(true), tcs, period, Timeout.InfiniteTimeSpan);
+                    await using var _ = timeProvider.CreateTimer(x => ((TaskCompletionSource<bool>)x!).TrySetResult(true), tcs, period, System.Threading.Timeout.InfiniteTimeSpan);
                     using var __ = cancellationToken.Register(x => ((TaskCompletionSource<bool>)x!).TrySetCanceled(cancellationToken), tcs);
                     await tcs.Task;
                 }
