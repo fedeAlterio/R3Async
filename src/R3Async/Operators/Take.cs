@@ -6,6 +6,11 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Forwards only the first <paramref name="count"/> values from the source sequence, then completes successfully and unsubscribes.
+        /// </summary>
+        /// <param name="count">The maximum number of values to take. Must be non-negative; if zero, the result completes immediately without subscribing.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
         public AsyncObservable<T> Take(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));

@@ -9,6 +9,13 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Fails with a <see cref="TimeoutException"/> if no value is observed from <paramref name="@this"/>
+        /// within <paramref name="dueTime"/>. The window is measured from subscription and reset every time a
+        /// value is emitted, so the source only needs to keep producing values more often than <paramref name="dueTime"/>.
+        /// </summary>
+        /// <param name="dueTime">The maximum allowed quiet period between subscription/values before the stream fails.</param>
+        /// <param name="timeProvider">The time provider used to schedule the timeout window. Defaults to <see cref="TimeProvider.System"/>.</param>
         public AsyncObservable<T> Timeout(TimeSpan dueTime, TimeProvider? timeProvider = null)
             => new TimeoutObservable<T>(@this, dueTime, timeProvider ?? TimeProvider.System);
     }

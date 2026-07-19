@@ -4,6 +4,10 @@ using System.Threading.Tasks;
 
 namespace R3Async;
 
+/// <summary>
+/// Governs how a single async operation (e.g. subscribing or disposing) is consumed from synchronous code, such as
+/// when adapting an <see cref="AsyncObservable{T}"/> to a synchronous <see cref="IObservable{T}"/> or R3 <c>Observable&lt;T&gt;</c>.
+/// </summary>
 public sealed class AsyncToSyncStrategy
 {
     readonly Action<Exception>? _onException;
@@ -11,8 +15,17 @@ public sealed class AsyncToSyncStrategy
     private AsyncToSyncStrategy(Action<Exception>? onException) => _onException = onException;
 
     static readonly AsyncToSyncStrategy DefaultFireAndForget = new(null);
+
+    /// <summary>
+    /// A strategy that blocks the calling thread until the async operation completes. Exceptions thrown by the
+    /// operation propagate synchronously to the caller.
+    /// </summary>
     public static AsyncToSyncStrategy Blocking { get; } = new(null);
 
+    /// <summary>
+    /// Creates a strategy that starts the async operation without waiting for it to complete. Exceptions thrown by the
+    /// operation are routed to <paramref name="onException"/> if provided, otherwise to the <see cref="UnhandledExceptionHandler"/>.
+    /// </summary>
     public static AsyncToSyncStrategy FireAndForget(Action<Exception>? onException = null) =>
         onException is null ? DefaultFireAndForget : new(onException);
 
@@ -59,9 +72,16 @@ public sealed class AsyncToSyncStrategy
     }
 }
 
+/// <summary>
+/// Configures how the async subscribe and dispose operations of an <see cref="AsyncObservable{T}"/> are consumed when
+/// adapting it to a synchronous observable (<see cref="IObservable{T}"/> or R3's <c>Observable&lt;T&gt;</c>).
+/// </summary>
 public sealed class ToObservableConfiguration
 {
+    /// <summary>The strategy used to consume the async <c>SubscribeAsync</c> operation from synchronous <c>Subscribe</c> calls.</summary>
     public required AsyncToSyncStrategy SubscribeStrategy { get; init; }
+
+    /// <summary>The strategy used to consume the async <c>DisposeAsync</c> operation from synchronous <c>Dispose</c> calls.</summary>
     public required AsyncToSyncStrategy DisposeStrategy { get; init; }
 }
 

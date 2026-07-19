@@ -5,11 +5,26 @@ using System.Threading.Tasks;
 
 namespace R3Async;
 
+/// <summary>
+/// A reference-counted lazily-created resource: the first call to <see cref="GetAsync"/> creates the value using
+/// <paramref name="valueFactory"/>, subsequent calls share it, and it is disposed once every returned reference
+/// has been disposed. A later call to <see cref="GetAsync"/> after the resource has been fully released creates a
+/// brand-new instance via <paramref name="valueFactory"/>. Thread-safe for concurrent access.
+/// </summary>
+/// <typeparam name="T">The type of the shared resource.</typeparam>
+/// <param name="valueFactory">Creates the resource (and its disposal callback) the first time it is requested.</param>
 public class RefCountLazy<T>(Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
 {
     readonly AsyncGate _gate = new();
 
     Connection? _connection;
+
+    /// <summary>
+    /// Gets a reference to the shared resource, creating it via the value factory if this is the first outstanding
+    /// reference. Dispose the returned reference to release it; the resource itself is disposed once all
+    /// references have been disposed.
+    /// </summary>
+    /// <param name="cancellationToken">Used only while creating the resource, if it does not already exist.</param>
     public async ValueTask<IAsyncDisposableReference<T>> GetAsync(CancellationToken cancellationToken)
     {
         using (await _gate.LockAsync())
@@ -71,18 +86,21 @@ public class RefCountLazy<T>(Func<CancellationToken, ValueTask<AsyncDisposableVa
         public AsyncDisposableValue<T>? Entry { get; private set; }
     }
 
+    /// <summary>A reference to the resource shared by a <see cref="RefCountLazy{T}"/>, returned by <see cref="GetAsync"/>.</summary>
     public sealed class Reference : IAsyncDisposableReference<T>
     {
         int _disposed;
         readonly Connection _connection;
         internal Reference(Connection connection) => _connection = connection;
 
+        /// <summary>Releases this reference. Once every outstanding reference has been disposed, the underlying resource is disposed as well.</summary>
         public async ValueTask DisposeAsync()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
             await _connection.DecrementRefCount();
         }
 
+        /// <summary>The shared resource value. Throws <see cref="ObjectDisposedException"/> if this reference has already been disposed.</summary>
         public T Value => Volatile.Read(ref _disposed) == 1
             ? throw new ObjectDisposedException($"{nameof(RefCountTable<,>)}.{nameof(Reference)}")
             : _connection.Entry!.Value.Value;

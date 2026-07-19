@@ -9,6 +9,14 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Suppresses values that are followed by another value within <paramref name="dueTime"/>; only emits a
+        /// value once <paramref name="dueTime"/> has elapsed without a newer value arriving (i.e. after a quiet
+        /// period). Known as <c>Throttle</c> in classic Rx.NET. If the source completes successfully while a
+        /// value is pending, the pending value is flushed before completion.
+        /// </summary>
+        /// <param name="dueTime">The quiet period that must elapse after a value before it is emitted.</param>
+        /// <param name="timeProvider">The time provider used to schedule the quiet period. Defaults to <see cref="TimeProvider.System"/>.</param>
         public AsyncObservable<T> Debounce(TimeSpan dueTime, TimeProvider? timeProvider = null)
             => new DebounceObservable<T>(@this, dueTime, timeProvider ?? TimeProvider.System);
     }

@@ -7,6 +7,9 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Invokes and awaits <paramref name="onDispose"/> when the subscription to the resulting observable is disposed, after forwarding all other notifications unchanged.
+        /// </summary>
         public AsyncObservable<T> OnDispose(Func<ValueTask> onDispose)
         {
             return Create<T>((observer, token) =>
@@ -16,6 +19,9 @@ public static partial class AsyncObservable
             });
         }
 
+        /// <summary>
+        /// Invokes <paramref name="onDispose"/> when the subscription to the resulting observable is disposed, after forwarding all other notifications unchanged.
+        /// </summary>
         public AsyncObservable<T> OnDispose(Action onDispose)
         {
             return Create<T>((observer, token) =>

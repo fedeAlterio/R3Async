@@ -8,6 +8,11 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Skips the first <paramref name="count"/> values from the source sequence, forwarding all subsequent values.
+        /// </summary>
+        /// <param name="count">The number of leading values to discard. Must be non-negative.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
         public AsyncObservable<T> Skip(int count)
         {
             return count switch

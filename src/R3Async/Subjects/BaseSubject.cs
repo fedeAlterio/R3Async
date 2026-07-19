@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace R3Async.Subjects;
 
+/// <summary>
+/// Base class for non-replaying <see cref="ISubject{T}"/> implementations: new subscribers receive nothing until the
+/// next notification (or, if the subject has already completed, immediately receive the stored completion result).
+/// Subclasses implement <see cref="OnNextAsyncCore"/>, <see cref="OnErrorResumeAsyncCore"/> and
+/// <see cref="OnCompletedAsyncCore"/> to decide how the current observer list is notified (e.g. serially or concurrently).
+/// </summary>
 public abstract class BaseSubject<T> : AsyncObservable<T>, ISubject<T>
 {
     ImmutableList<AsyncObserver<T>> _observers = [];
@@ -43,6 +49,7 @@ public abstract class BaseSubject<T> : AsyncObservable<T>, ISubject<T>
         });
     }
 
+    /// <summary>Pushes a value to all current subscribers. A no-op once the subject has completed.</summary>
     public ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
     {
         ImmutableList<AsyncObserver<T>>? observers;
@@ -57,6 +64,7 @@ public abstract class BaseSubject<T> : AsyncObservable<T>, ISubject<T>
     }
     protected abstract ValueTask OnNextAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, T value, CancellationToken cancellationToken);
 
+    /// <summary>Pushes a resumable error to all current subscribers without terminating the subject. A no-op once the subject has completed.</summary>
     public ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
     {
         ImmutableList<AsyncObserver<T>>? observers;
@@ -72,6 +80,7 @@ public abstract class BaseSubject<T> : AsyncObservable<T>, ISubject<T>
     protected abstract ValueTask OnErrorResumeAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, Exception error, CancellationToken cancellationToken);
 
 
+    /// <summary>Completes the subject with the given <paramref name="result"/>, notifying all current subscribers. Further notifications are ignored.</summary>
     public ValueTask OnCompletedAsync(Result result)
     {
         ImmutableList<AsyncObserver<T>>? observers;

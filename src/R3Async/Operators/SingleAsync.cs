@@ -9,6 +9,10 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source and returns the single value that satisfies <paramref name="predicate"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">No value matched, or more than one value matched.</exception>
         public async ValueTask<T> SingleAsync(Func<T, bool> predicate, CancellationToken cancellationToken = default)
         {
             var observer = new SingleAsyncObserver<T>(predicate, cancellationToken);
@@ -16,6 +20,10 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Subscribes to the source and returns its single value.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The sequence produced no value, or more than one value.</exception>
         public async ValueTask<T> SingleAsync(CancellationToken cancellationToken = default)
         {
             var observer = new SingleAsyncObserver<T>(null, cancellationToken);
@@ -23,9 +31,17 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="SingleAsync(Func{T, bool}, CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<T>> SubscribeSingleAsync(Func<T, bool> predicate, CancellationToken cancellationToken = default)
             => @this.ToSubscriptionAsyncHandleAsync(new SingleAsyncObserver<T>(predicate, cancellationToken), cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="SingleAsync(CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<T>> SubscribeSingleAsync(CancellationToken cancellationToken = default)
             => @this.ToSubscriptionAsyncHandleAsync(new SingleAsyncObserver<T>(null, cancellationToken), cancellationToken);
     }

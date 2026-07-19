@@ -4,10 +4,22 @@ using System.Threading.Tasks;
 
 namespace R3Async;
 
+/// <summary>Factory helpers for creating <see cref="IAsyncDisposable"/> instances from delegates.</summary>
 public static class AsyncDisposable
 {
+    /// <summary>
+    /// Creates an <see cref="IAsyncDisposable"/> that invokes <paramref name="disposeAsync"/> on the first call to
+    /// <see cref="IAsyncDisposable.DisposeAsync"/>. Subsequent calls are no-ops.
+    /// </summary>
     public static IAsyncDisposable Create(Func<ValueTask> disposeAsync) => new AnonymousAsyncDisposable(disposeAsync);
+
+    /// <summary>
+    /// Creates an <see cref="IAsyncDisposable"/> that invokes the synchronous <paramref name="dispose"/> action on
+    /// the first call to <see cref="IAsyncDisposable.DisposeAsync"/>. Subsequent calls are no-ops.
+    /// </summary>
     public static IAsyncDisposable Create(Action dispose) => new AnonymousAsyncSyncDisposable(dispose);
+
+    /// <summary>Gets a shared <see cref="IAsyncDisposable"/> instance whose <see cref="IAsyncDisposable.DisposeAsync"/> does nothing.</summary>
     public static IAsyncDisposable Empty { get; } = new EmptyAsyncDisposable();
     sealed class AnonymousAsyncDisposable(Func<ValueTask> disposeAsync) : IAsyncDisposable
     {

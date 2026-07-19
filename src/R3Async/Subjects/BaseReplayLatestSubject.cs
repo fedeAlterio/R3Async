@@ -8,6 +8,15 @@ using System.Threading.Tasks;
 namespace R3Async.Subjects;
 
 
+/// <summary>
+/// Base class for replaying <see cref="ISubject{T}"/> implementations (BehaviorSubject and replay-latest subjects):
+/// a new subscriber immediately receives the last emitted value, if any (via <paramref name="startValue"/> or a
+/// subsequent <see cref="OnNextAsync"/> call), before further notifications arrive, or receives the stored completion
+/// result if the subject has already completed. Subclasses implement <see cref="OnNextAsyncCore"/>,
+/// <see cref="OnErrorResumeAsyncCore"/> and <see cref="OnCompletedAsyncCore"/> to decide how the current observer list
+/// is notified (e.g. serially or concurrently).
+/// </summary>
+/// <param name="startValue">The initial "last value" replayed to subscribers before any value has been pushed; empty for non-behavior replay-latest subjects.</param>
 public abstract class BaseReplayLatestSubject<T>(Optional<T> startValue) : AsyncObservable<T>, ISubject<T>
 {
     Optional<T> _lastValue = startValue;
@@ -16,6 +25,8 @@ public abstract class BaseReplayLatestSubject<T>(Optional<T> startValue) : Async
     Result? _result;
 
     AsyncObservable<T> ISubject<T>.Values => this;
+
+    /// <summary>Pushes a value to all current subscribers and stores it as the latest value replayed to future subscribers. A no-op once the subject has completed.</summary>
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
     {
         ImmutableList<AsyncObserver<T>> observers;
@@ -31,6 +42,7 @@ public abstract class BaseReplayLatestSubject<T>(Optional<T> startValue) : Async
     protected abstract ValueTask OnNextAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, T value, CancellationToken cancellationToken);
 
 
+    /// <summary>Pushes a resumable error to all current subscribers without terminating the subject. A no-op once the subject has completed.</summary>
     public async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
     {
         ImmutableList<AsyncObserver<T>> observers;
@@ -44,6 +56,7 @@ public abstract class BaseReplayLatestSubject<T>(Optional<T> startValue) : Async
     }
     protected abstract ValueTask OnErrorResumeAsyncCore(IReadOnlyList<AsyncObserver<T>> observers, Exception error, CancellationToken cancellationToken);
 
+    /// <summary>Completes the subject with the given <paramref name="result"/>, notifying all current subscribers. Further notifications are ignored.</summary>
     public async ValueTask OnCompletedAsync(Result result)
     {
         ImmutableList<AsyncObserver<T>>? observers;

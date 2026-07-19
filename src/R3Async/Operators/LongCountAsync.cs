@@ -9,6 +9,9 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns the number of values that satisfy <paramref name="predicate"/> (or all values, if <see langword="null"/>) as a <see cref="long"/>.
+        /// </summary>
         public async ValueTask<long> LongCountAsync(Func<T, bool>? predicate, CancellationToken cancellationToken = default)
         {
             var observer = new LongCountAsyncObserver<T>(predicate, cancellationToken);
@@ -16,12 +19,23 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns the total number of values produced as a <see cref="long"/>.
+        /// </summary>
         public ValueTask<long> LongCountAsync(CancellationToken cancellationToken = default)
             => @this.LongCountAsync(null, cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="LongCountAsync(Func{T, bool}, CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<long>> SubscribeLongCountAsync(Func<T, bool>? predicate, CancellationToken cancellationToken = default)
             => @this.ToSubscriptionAsyncHandleAsync(new LongCountAsyncObserver<T>(predicate, cancellationToken), cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="LongCountAsync(CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<long>> SubscribeLongCountAsync(CancellationToken cancellationToken = default)
             => @this.SubscribeLongCountAsync(null, cancellationToken);
     }

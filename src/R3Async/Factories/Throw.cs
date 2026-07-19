@@ -8,6 +8,10 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
+    /// <summary>
+    /// Creates an <see cref="AsyncObservable{T}"/> that emits no values and immediately completes with a failure
+    /// result carrying <paramref name="error"/> upon subscription.
+    /// </summary>
     public static AsyncObservable<T> Throw<T>(Exception error)
     {
         if (error == null) throw new ArgumentNullException(nameof(error));

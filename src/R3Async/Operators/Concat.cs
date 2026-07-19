@@ -8,8 +8,28 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
+    /// <summary>
+    /// Concatenates an observable of observables: subscribes to each inner observable only after the previous one
+    /// has completed successfully, in the order they are emitted by the outer observable. The resulting stream
+    /// completes once the outer observable and the last inner observable have both completed; a failure from
+    /// either the outer or any inner observable terminates the stream immediately.
+    /// </summary>
+    /// <typeparam name="T">The type of the values emitted by the inner observables.</typeparam>
+    /// <param name="this">The observable of observables to concatenate.</param>
     public static AsyncObservable<T> Concat<T>(this AsyncObservable<AsyncObservable<T>> @this) => new ConcatObservablesObservable<T>(@this);
+
+    /// <summary>
+    /// Subscribes to each observable in <paramref name="this"/> in sequence, only moving to the next one after the
+    /// current one completes successfully. A failure from any observable terminates the stream immediately.
+    /// </summary>
+    /// <typeparam name="T">The type of the values emitted by the source observables.</typeparam>
+    /// <param name="this">The observables to concatenate, in order.</param>
     public static AsyncObservable<T> Concat<T>(this IEnumerable<AsyncObservable<T>> @this) => new ConcatEnumerableObservable<T>(@this);
+
+    /// <summary>Subscribes to <paramref name="this"/>, then subscribes to <paramref name="second"/> only after <paramref name="this"/> completes successfully.</summary>
+    /// <typeparam name="T">The type of the values emitted by the source observables.</typeparam>
+    /// <param name="this">The observable to subscribe to first.</param>
+    /// <param name="second">The observable to subscribe to after <paramref name="this"/> completes successfully.</param>
     public static AsyncObservable<T> Concat<T>(this AsyncObservable<T> @this, AsyncObservable<T> second) => new ConcatEnumerableObservable<T>([@this, second]);
 }
 

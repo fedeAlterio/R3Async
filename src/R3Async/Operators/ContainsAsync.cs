@@ -10,6 +10,9 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source and returns whether it produces a value equal to <paramref name="value"/> (using <paramref name="comparer"/>, or the default comparer if <see langword="null"/>), unsubscribing as soon as a match is found.
+        /// </summary>
         public async ValueTask<bool> ContainsAsync(T value, IEqualityComparer<T>? comparer, CancellationToken cancellationToken = default)
         {
             var cmp = comparer ?? EqualityComparer<T>.Default;
@@ -18,12 +21,23 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Subscribes to the source and returns whether it produces a value equal to <paramref name="value"/> using the default equality comparer for <typeparamref name="T"/>, unsubscribing as soon as a match is found.
+        /// </summary>
         public ValueTask<bool> ContainsAsync(T value, CancellationToken cancellationToken = default)
             => @this.ContainsAsync(value, null, cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ContainsAsync(T, IEqualityComparer{T}, CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<bool>> SubscribeContainsAsync(T value, IEqualityComparer<T>? comparer, CancellationToken cancellationToken = default)
             => @this.ToSubscriptionAsyncHandleAsync(new ContainsAsyncObserver<T>(value, comparer ?? EqualityComparer<T>.Default, cancellationToken), cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ContainsAsync(T, CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<bool>> SubscribeContainsAsync(T value, CancellationToken cancellationToken = default)
             => @this.SubscribeContainsAsync(value, null, cancellationToken);
     }

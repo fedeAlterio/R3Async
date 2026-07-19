@@ -10,6 +10,9 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns all produced values as a <see cref="List{T}"/>, in emission order.
+        /// </summary>
         public async ValueTask<List<T>> ToListAsync(CancellationToken cancellationToken = default)
         {
             var observer = new ToListAsyncObserver<T>(cancellationToken);
@@ -17,6 +20,10 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ToListAsync(CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<List<T>>> SubscribeToListAsync(CancellationToken cancellationToken = default)
             => @this.ToSubscriptionAsyncHandleAsync(new ToListAsyncObserver<T>(cancellationToken), cancellationToken);
     }

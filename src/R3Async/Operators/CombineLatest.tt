@@ -18,6 +18,18 @@ public static partial class AsyncObservable
 {
 <# for(int n=2; n<=8; n++) { #>
     // CombineLatest for <#= n #> sources
+<# if (n == 2) { #>
+    /// <summary>
+    /// Combines the latest values from 2 source observables using <paramref name="selector"/>. Emits a new result
+    /// whenever any source produces a value, once every source has produced at least one value. The combined
+    /// observable completes once all sources have completed; a failure from any source (or from
+    /// <paramref name="selector"/>) terminates it immediately.
+    /// </summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
+<# } else { #>
+    /// <summary>Combines the latest values from <#= n #> source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
+<# } #>
     public static AsyncObservable<TResult> CombineLatest<<#= GenericList(n) #>, TResult>(
         this AsyncObservable<T1> src1,
 <# for(int i=2;i<=n;i++) { #>        AsyncObservable<T<#= i #>> src<#= i #>,

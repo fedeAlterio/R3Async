@@ -9,6 +9,10 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns the number of values that satisfy <paramref name="predicate"/> (or all values, if <see langword="null"/>).
+        /// </summary>
+        /// <exception cref="OverflowException">More than <see cref="int.MaxValue"/> matching values were produced.</exception>
         public async ValueTask<int> CountAsync(Func<T, bool>? predicate, CancellationToken cancellationToken = default)
         {
             var observer = new CountAsyncObserver<T>(predicate, cancellationToken);
@@ -16,12 +20,24 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns the total number of values produced.
+        /// </summary>
+        /// <exception cref="OverflowException">More than <see cref="int.MaxValue"/> values were produced.</exception>
         public ValueTask<int> CountAsync(CancellationToken cancellationToken = default)
             => @this.CountAsync(null, cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="CountAsync(Func{T, bool}, CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<int>> SubscribeCountAsync(Func<T, bool>? predicate, CancellationToken cancellationToken = default)
             => @this.ToSubscriptionAsyncHandleAsync(new CountAsyncObserver<T>(predicate, cancellationToken), cancellationToken);
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="CountAsync(CancellationToken)"/> for the combined version).
+        /// </summary>
         public ValueTask<SubscriptionHandle<int>> SubscribeCountAsync(CancellationToken cancellationToken = default)
             => @this.SubscribeCountAsync(null, cancellationToken);
     }

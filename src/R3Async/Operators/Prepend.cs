@@ -10,7 +10,15 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Emits <paramref name="value"/> immediately upon subscription, before subscribing to the source and forwarding its values.
+        /// </summary>
         public AsyncObservable<T> Prepend(T value) => @this.Prepend([value]);
+
+        /// <summary>
+        /// Emits <paramref name="values"/> in order immediately upon subscription, before subscribing to the source and forwarding its values.
+        /// </summary>
+        /// <remarks>If disposed while the prepended values are still being emitted, emission stops as soon as possible and the source is never subscribed to.</remarks>
         public AsyncObservable<T> Prepend(IEnumerable<T> values)
         {
             return Create<T>((observer, _) =>
@@ -48,7 +56,7 @@ public static partial class AsyncObservable
                         }
                     }
                 }
-                var subcription = AsyncDisposable.Create(async () =>
+                var subscription = AsyncDisposable.Create(async () =>
                 {
                     await subscriptionDisposable.DisposeAsync();
                     if (!reentrant.Value)
@@ -58,7 +66,7 @@ public static partial class AsyncObservable
                     }
                     cts.Dispose();
                 });
-                return new ValueTask<IAsyncDisposable>(subcription);
+                return new ValueTask<IAsyncDisposable>(subscription);
             });
         }
     }

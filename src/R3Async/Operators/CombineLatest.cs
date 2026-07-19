@@ -11,6 +11,13 @@ namespace R3Async;
 public static partial class AsyncObservable
 {
     // CombineLatest for 2 sources
+    /// <summary>
+    /// Combines the latest values from 2 source observables using <paramref name="selector"/>. Emits a new result
+    /// whenever any source produces a value, once every source has produced at least one value. The combined
+    /// observable completes once all sources have completed; a failure from any source (or from
+    /// <paramref name="selector"/>) terminates it immediately.
+    /// </summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,
@@ -201,6 +208,8 @@ public static partial class AsyncObservable
     }
 
     // CombineLatest for 3 sources
+    /// <summary>Combines the latest values from 3 source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, T3, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,
@@ -442,6 +451,8 @@ public static partial class AsyncObservable
     }
 
     // CombineLatest for 4 sources
+    /// <summary>Combines the latest values from 4 source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, T3, T4, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,
@@ -736,6 +747,8 @@ public static partial class AsyncObservable
     }
 
     // CombineLatest for 5 sources
+    /// <summary>Combines the latest values from 5 source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, T3, T4, T5, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,
@@ -1085,6 +1098,8 @@ public static partial class AsyncObservable
     }
 
     // CombineLatest for 6 sources
+    /// <summary>Combines the latest values from 6 source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, T3, T4, T5, T6, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,
@@ -1491,6 +1506,8 @@ public static partial class AsyncObservable
     }
 
     // CombineLatest for 7 sources
+    /// <summary>Combines the latest values from 7 source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, T3, T4, T5, T6, T7, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,
@@ -1956,6 +1973,8 @@ public static partial class AsyncObservable
     }
 
     // CombineLatest for 8 sources
+    /// <summary>Combines the latest values from 8 source observables using <paramref name="selector"/>. See the 2-source overload for full semantics.</summary>
+    /// <param name="selector">Combines the latest values from all sources into a result value.</param>
     public static AsyncObservable<TResult> CombineLatest<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         this AsyncObservable<T1> src1,
         AsyncObservable<T2> src2,

@@ -9,12 +9,30 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Emits the first value of each <paramref name="dueTime"/> window and drops the rest until the window expires.
+        /// A new window starts the moment a value is emitted.
+        /// </summary>
+        /// <param name="dueTime">The duration of each throttle window.</param>
+        /// <param name="timeProvider">The time provider used to schedule windows. Defaults to <see cref="TimeProvider.System"/>.</param>
         public AsyncObservable<T> ThrottleFirst(TimeSpan dueTime, TimeProvider? timeProvider = null)
             => new ThrottleObservable<T>(@this, dueTime, timeProvider ?? TimeProvider.System, emitFirst: true, emitLast: false);
 
+        /// <summary>
+        /// Emits only the latest value received during each <paramref name="dueTime"/> window, emitted once the
+        /// window expires. Values are dropped without triggering emission until the window elapses.
+        /// </summary>
+        /// <param name="dueTime">The duration of each throttle window.</param>
+        /// <param name="timeProvider">The time provider used to schedule windows. Defaults to <see cref="TimeProvider.System"/>.</param>
         public AsyncObservable<T> ThrottleLast(TimeSpan dueTime, TimeProvider? timeProvider = null)
             => new ThrottleObservable<T>(@this, dueTime, timeProvider ?? TimeProvider.System, emitFirst: false, emitLast: true);
 
+        /// <summary>
+        /// Emits the first value of each <paramref name="dueTime"/> window immediately, and also emits the latest
+        /// value observed during that window when it expires (if different from the first).
+        /// </summary>
+        /// <param name="dueTime">The duration of each throttle window.</param>
+        /// <param name="timeProvider">The time provider used to schedule windows. Defaults to <see cref="TimeProvider.System"/>.</param>
         public AsyncObservable<T> ThrottleFirstLast(TimeSpan dueTime, TimeProvider? timeProvider = null)
             => new ThrottleObservable<T>(@this, dueTime, timeProvider ?? TimeProvider.System, emitFirst: true, emitLast: true);
     }

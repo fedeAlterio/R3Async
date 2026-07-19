@@ -9,9 +9,36 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
+    /// <summary>
+    /// Merges an observable of observables into a single stream: subscribes to the outer observable, and as each
+    /// inner observable is emitted, subscribes to it concurrently, forwarding all inner values as they arrive.
+    /// The merged stream completes once the outer observable and all inner observables have completed.
+    /// </summary>
+    /// <typeparam name="T">The type of the values emitted by the inner observables.</typeparam>
+    /// <param name="this">The observable of observables to merge.</param>
     public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this) => new MergeObservableObservables<T>(@this);
+
+    /// <summary>
+    /// Merges an observable of observables into a single stream, subscribing to at most <paramref name="maxConcurrent"/>
+    /// inner observables at a time. Additional inner observables wait for a slot to free up before being subscribed.
+    /// </summary>
+    /// <typeparam name="T">The type of the values emitted by the inner observables.</typeparam>
+    /// <param name="this">The observable of observables to merge.</param>
+    /// <param name="maxConcurrent">The maximum number of inner observables subscribed to concurrently.</param>
     public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this, int maxConcurrent) => new MergeObservableObservablesWithMaxConcurrency<T>(@this, maxConcurrent);
+
+    /// <summary>
+    /// Subscribes concurrently to all observables in <paramref name="this"/> and merges their values into a single
+    /// stream. The merged stream completes once every source observable has completed.
+    /// </summary>
+    /// <typeparam name="T">The type of the values emitted by the source observables.</typeparam>
+    /// <param name="this">The observables to merge.</param>
     public static AsyncObservable<T> Merge<T>(this IEnumerable<AsyncObservable<T>> @this) => new MergeEnumerableObservable<T>(@this);
+
+    /// <summary>Merges <paramref name="this"/> and <paramref name="other"/>, subscribing to both concurrently and forwarding values from either as they arrive.</summary>
+    /// <typeparam name="T">The type of the values emitted by the source observables.</typeparam>
+    /// <param name="this">The first observable to merge.</param>
+    /// <param name="other">The second observable to merge.</param>
     public static AsyncObservable<T> Merge<T>(this AsyncObservable<T> @this, AsyncObservable<T> other) => new MergeEnumerableObservable<T>([@this, other]);
 
     sealed class MergeObservableObservables<T>(AsyncObservable<AsyncObservable<T>> sources) : AsyncObservable<T>

@@ -10,6 +10,13 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns a <see cref="Dictionary{TKey, TValue}"/> mapping each value's key (as produced by <paramref name="keySelector"/>) to the value itself.
+        /// </summary>
+        /// <typeparam name="TKey">The type of the dictionary key.</typeparam>
+        /// <param name="comparer">Equality comparer used for keys, or <see langword="null"/> for the default comparer.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="keySelector"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Two values produce the same key.</exception>
         public async ValueTask<Dictionary<TKey, T>> ToDictionaryAsync<TKey>(Func<T, TKey> keySelector, IEqualityComparer<TKey>? comparer = null, CancellationToken cancellationToken = default)
             where TKey : notnull
         {
@@ -19,6 +26,14 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Subscribes to the source, consumes it to completion, and returns a <see cref="Dictionary{TKey, TValue}"/> mapping each value's key (as produced by <paramref name="keySelector"/>) to a projected element (as produced by <paramref name="elementSelector"/>).
+        /// </summary>
+        /// <typeparam name="TKey">The type of the dictionary key.</typeparam>
+        /// <typeparam name="TValue">The type of the dictionary value.</typeparam>
+        /// <param name="comparer">Equality comparer used for keys, or <see langword="null"/> for the default comparer.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="keySelector"/> or <paramref name="elementSelector"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Two values produce the same key.</exception>
         public async ValueTask<Dictionary<TKey, TValue>> ToDictionaryAsync<TKey, TValue>(Func<T, TKey> keySelector, Func<T, TValue> elementSelector, IEqualityComparer<TKey>? comparer = null, CancellationToken cancellationToken = default)
             where TKey : notnull
         {
@@ -29,6 +44,11 @@ public static partial class AsyncObservable
             return await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ToDictionaryAsync{TKey}(Func{T, TKey}, IEqualityComparer{TKey}, CancellationToken)"/> for the combined version).
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="keySelector"/> is <see langword="null"/>.</exception>
         public ValueTask<SubscriptionHandle<Dictionary<TKey, T>>> SubscribeToDictionaryAsync<TKey>(Func<T, TKey> keySelector, IEqualityComparer<TKey>? comparer = null, CancellationToken cancellationToken = default)
             where TKey : notnull
         {
@@ -36,6 +56,11 @@ public static partial class AsyncObservable
             return @this.ToSubscriptionAsyncHandleAsync(new ToDictionaryAsyncObserver<T, TKey, T>(keySelector, x => x, comparer, cancellationToken), cancellationToken);
         }
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ToDictionaryAsync{TKey, TValue}(Func{T, TKey}, Func{T, TValue}, IEqualityComparer{TKey}, CancellationToken)"/> for the combined version).
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="keySelector"/> or <paramref name="elementSelector"/> is <see langword="null"/>.</exception>
         public ValueTask<SubscriptionHandle<Dictionary<TKey, TValue>>> SubscribeToDictionaryAsync<TKey, TValue>(Func<T, TKey> keySelector, Func<T, TValue> elementSelector, IEqualityComparer<TKey>? comparer = null, CancellationToken cancellationToken = default)
             where TKey : notnull
         {

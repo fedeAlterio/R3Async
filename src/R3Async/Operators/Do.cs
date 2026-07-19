@@ -8,13 +8,25 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
-        public AsyncObservable<T> Do(Func<T, CancellationToken, ValueTask>? onNext, 
+        /// <summary>
+        /// Invokes the given async callbacks as side effects for each notification, then forwards the notification unchanged to the downstream observer.
+        /// </summary>
+        /// <param name="onNext">Invoked (and awaited) before each value is forwarded, if provided.</param>
+        /// <param name="onErrorResume">Invoked (and awaited) before each resumable error is forwarded, if provided.</param>
+        /// <param name="onCompleted">Invoked (and awaited) before the completion result is forwarded, if provided.</param>
+        public AsyncObservable<T> Do(Func<T, CancellationToken, ValueTask>? onNext,
                                      Func<Exception, CancellationToken, ValueTask>? onErrorResume = null,
                                      Func<Result, ValueTask>? onCompleted = null)
         {
             return new DoAsyncObservable<T>(@this, onNext, onErrorResume, onCompleted);
         }
 
+        /// <summary>
+        /// Invokes the given synchronous callbacks as side effects for each notification, then forwards the notification unchanged to the downstream observer.
+        /// </summary>
+        /// <param name="onNext">Invoked before each value is forwarded, if provided.</param>
+        /// <param name="onErrorResume">Invoked before each resumable error is forwarded, if provided.</param>
+        /// <param name="onCompleted">Invoked before the completion result is forwarded, if provided.</param>
         public AsyncObservable<T> Do(Action<T>? onNext = null,
                                      Action<Exception>? onErrorResume = null,
                                      Action<Result>? onCompleted = null)

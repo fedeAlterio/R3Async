@@ -6,19 +6,25 @@ namespace R3Async;
 
 public static partial class AsyncObservable
 {
+    /// <summary>
+    /// Converts every <c>OnErrorResumeAsync</c> notification from <paramref name="@this"/> into a terminal failure
+    /// completion (<see cref="Result.Failure(Exception)"/>), turning resumable errors into stream-ending ones.
+    /// </summary>
+    /// <typeparam name="T">The type of the values emitted by <paramref name="@this"/>.</typeparam>
+    /// <param name="this">The source observable whose resumable errors should become terminal.</param>
     public static AsyncObservable<T> OnErrorResumeAsFailure<T>(this AsyncObservable<T> @this)
     {
-        return new OnErroreResumeAsFailureObservable<T>(@this);
+        return new OnErrorResumeAsFailureObservable<T>(@this);
     }
 
-    sealed class OnErroreResumeAsFailureObservable<T>(AsyncObservable<T> source) : AsyncObservable<T>
+    sealed class OnErrorResumeAsFailureObservable<T>(AsyncObservable<T> source) : AsyncObservable<T>
     {
         protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
-            return source.SubscribeAsync(new OnErroreResumeAsFailureObserver(observer), cancellationToken);
+            return source.SubscribeAsync(new OnErrorResumeAsFailureObserver(observer), cancellationToken);
         }
 
-        sealed class OnErroreResumeAsFailureObserver(AsyncObserver<T> observer) : AsyncObserver<T>
+        sealed class OnErrorResumeAsFailureObserver(AsyncObserver<T> observer) : AsyncObserver<T>
         {
             protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
             {

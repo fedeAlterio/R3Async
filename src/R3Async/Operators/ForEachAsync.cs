@@ -9,6 +9,9 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Subscribes to the source and awaits <paramref name="onNextAsync"/> for each value, in order, until the sequence completes.
+        /// </summary>
         public async ValueTask ForEachAsync(Func<T, CancellationToken, ValueTask> onNextAsync,
                                            CancellationToken cancellationToken = default)
         {
@@ -17,6 +20,10 @@ public static partial class AsyncObservable
             await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Subscribes to the source and invokes <paramref name="onNext"/> for each value, in order, until the sequence completes.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="onNext"/> is <see langword="null"/>.</exception>
         public async ValueTask ForEachAsync(Action<T> onNext, CancellationToken cancellationToken = default)
         {
             if (onNext is null) throw new ArgumentNullException(nameof(onNext));
@@ -25,12 +32,22 @@ public static partial class AsyncObservable
             await observer.WaitValueAsync();
         }
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ForEachAsync(Func{T, CancellationToken, ValueTask}, CancellationToken)"/> for the combined version).
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="onNextAsync"/> is <see langword="null"/>.</exception>
         public ValueTask<SubscriptionHandle<bool>> SubscribeForEachAsync(Func<T, CancellationToken, ValueTask> onNextAsync, CancellationToken cancellationToken = default)
         {
             if (onNextAsync is null) throw new ArgumentNullException(nameof(onNextAsync));
             return @this.ToSubscriptionAsyncHandleAsync(new ForEachObserver<T>(onNextAsync, cancellationToken), cancellationToken);
         }
 
+        /// <summary>
+        /// Eagerly subscribes to the source and returns a <see cref="SubscriptionHandle{T}"/> as soon as the subscription is established, splitting "subscribe" from
+        /// "wait for the result" (see <see cref="ForEachAsync(Action{T}, CancellationToken)"/> for the combined version).
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="onNext"/> is <see langword="null"/>.</exception>
         public ValueTask<SubscriptionHandle<bool>> SubscribeForEachAsync(Action<T> onNext, CancellationToken cancellationToken = default)
         {
             if (onNext is null) throw new ArgumentNullException(nameof(onNext));

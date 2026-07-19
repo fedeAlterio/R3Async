@@ -8,17 +8,46 @@ public static partial class AsyncObservable
 {
     extension<T>(AsyncObservable<T> @this)
     {
+        /// <summary>
+        /// Runs all downstream observer calls (<c>OnNextAsync</c>, <c>OnErrorResumeAsync</c>, <c>OnCompletedAsync</c>)
+        /// on the given <paramref name="asyncContext"/>. Because R3Async never uses <c>ConfigureAwait(false)</c>,
+        /// this context is preserved through the rest of the operator chain: operators and the final subscriber
+        /// downstream of this call all continue to execute on <paramref name="asyncContext"/>.
+        /// </summary>
+        /// <param name="asyncContext">The context (<see cref="SynchronizationContext"/> or <see cref="TaskScheduler"/>) to run downstream calls on.</param>
+        /// <param name="forceYielding">
+        /// When <see langword="true"/>, always yields and switches even if already running on <paramref name="asyncContext"/>.
+        /// When <see langword="false"/> (the default), the switch is skipped if already on the target context.
+        /// </param>
         public AsyncObservable<T> ObserveOn(AsyncContext asyncContext, bool forceYielding = false)
         {
             return new ObserveOnAsyncObservable<T>(@this, asyncContext, forceYielding);
         }
 
+        /// <summary>
+        /// Runs all downstream observer calls on the given <paramref name="synchronizationContext"/> by posting to it.
+        /// See <see cref="ObserveOn(AsyncObservable{T}, AsyncContext, bool)"/> for context-preservation details.
+        /// </summary>
+        /// <param name="synchronizationContext">The synchronization context to run downstream calls on.</param>
+        /// <param name="forceYielding">
+        /// When <see langword="true"/>, always yields and switches even if already running on <paramref name="synchronizationContext"/>.
+        /// When <see langword="false"/> (the default), the switch is skipped if already on the target context.
+        /// </param>
         public AsyncObservable<T> ObserveOn(SynchronizationContext synchronizationContext, bool forceYielding = false)
         {
             var asyncContext = AsyncContext.From(synchronizationContext);
             return new ObserveOnAsyncObservable<T>(@this, asyncContext, forceYielding);
         }
 
+        /// <summary>
+        /// Runs all downstream observer calls on the given <paramref name="taskScheduler"/> by starting a task on it.
+        /// See <see cref="ObserveOn(AsyncObservable{T}, AsyncContext, bool)"/> for context-preservation details.
+        /// </summary>
+        /// <param name="taskScheduler">The task scheduler to run downstream calls on.</param>
+        /// <param name="forceYielding">
+        /// When <see langword="true"/>, always yields and switches even if already running on <paramref name="taskScheduler"/>.
+        /// When <see langword="false"/> (the default), the switch is skipped if already on the target context.
+        /// </param>
         public AsyncObservable<T> ObserveOn(TaskScheduler taskScheduler, bool forceYielding = false)
         {
             var asyncContext = AsyncContext.From(taskScheduler);
