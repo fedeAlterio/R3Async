@@ -128,23 +128,23 @@ public static partial class AsyncObservable
 <# } #>
 
             async ValueTask OnNextCombined(<#= OnNextCombinedParams(n) #>, CancellationToken cancellationToken)
-            {               
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
+            {
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
                     if (_disposed == 1) return;
                     var v = _selector(<#= SelectorArgs(n) #>);
-                    await _observer.OnNextAsync(v, linkedCts.Token);
+                    await _observer.OnNextAsync(v, scope.Token);
                 }
             }
 
             async ValueTask OnErrorResume(Exception error, CancellationToken cancellationToken)
-            {                
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCancellationToken);
+            {
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
                     if (_disposed == 1) return;
-                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await _observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,14 +15,7 @@ public static partial class AsyncObservable
         /// <param name="selector">Async projection function applied to each value.</param>
         public AsyncObservable<TDest> Select<TDest>(Func<T, CancellationToken, ValueTask<TDest>> selector)
         {
-            return Create<TDest>(async (observer, subscribeToken) =>
-            {
-                return await @this.SubscribeAsync(async (x, token) =>
-                {
-                    var mapped = await selector(x, token);
-                    await observer.OnNextAsync(mapped, token);  
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
-            });
+            return new SelectAsyncObservable<T, TDest>(@this, selector);
         }
 
         /// <summary>
@@ -32,14 +25,50 @@ public static partial class AsyncObservable
         /// <param name="selector">Synchronous projection function applied to each value.</param>
         public AsyncObservable<TDest> Select<TDest>(Func<T, TDest> selector)
         {
-            return Create<TDest>(async (observer, subscribeToken) =>
-            {
-                return await @this.SubscribeAsync((x, token) =>
-                {
-                    var mapped = selector(x);
-                    return observer.OnNextAsync(mapped, token);
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
-            });
+            return new SelectObservable<T, TDest>(@this, selector);
         }
+    }
+}
+
+sealed class SelectObservable<T, TDest>(AsyncObservable<T> source, Func<T, TDest> selector) : AsyncObservable<TDest>
+{
+    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TDest> observer, CancellationToken cancellationToken)
+    {
+        return source.SubscribeAsync(new SelectObserver(observer, selector), cancellationToken);
+    }
+
+    sealed class SelectObserver(AsyncObserver<TDest> observer, Func<T, TDest> selector) : AsyncObserver<T>
+    {
+        protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+            => observer.OnNextAsync(selector(value), cancellationToken);
+
+        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            => observer.OnErrorResumeAsync(error, cancellationToken);
+
+        protected override ValueTask OnCompletedAsyncCore(Result result)
+            => observer.OnCompletedAsync(result);
+    }
+}
+
+sealed class SelectAsyncObservable<T, TDest>(AsyncObservable<T> source, Func<T, CancellationToken, ValueTask<TDest>> selector) : AsyncObservable<TDest>
+{
+    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TDest> observer, CancellationToken cancellationToken)
+    {
+        return source.SubscribeAsync(new SelectAsyncObserver(observer, selector), cancellationToken);
+    }
+
+    sealed class SelectAsyncObserver(AsyncObserver<TDest> observer, Func<T, CancellationToken, ValueTask<TDest>> selector) : AsyncObserver<T>
+    {
+        protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+        {
+            var mapped = await selector(value, cancellationToken);
+            await observer.OnNextAsync(mapped, cancellationToken);
+        }
+
+        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            => observer.OnErrorResumeAsync(error, cancellationToken);
+
+        protected override ValueTask OnCompletedAsyncCore(Result result)
+            => observer.OnCompletedAsync(result);
     }
 }

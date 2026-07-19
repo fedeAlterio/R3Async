@@ -231,19 +231,19 @@ public static partial class AsyncObservable
 
             async ValueTask ForwardOnNextAsync(T value, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnNextAsync(value, linkedCts.Token);
+                    await _observer.OnNextAsync(value, scope.Token);
                 }
             }
 
             async ValueTask ForwardOnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await _observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 
@@ -391,19 +391,19 @@ public static partial class AsyncObservable
 
             async ValueTask ForwardOnNextAsync(T value, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnNextAsync(value, linkedCts.Token);
+                    await _observer.OnNextAsync(value, scope.Token);
                 }
             }
 
             async ValueTask ForwardOnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await _observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 
@@ -518,19 +518,19 @@ public static partial class AsyncObservable
 
             async ValueTask ForwardOnNextAsync(T value, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnNextAsync(value, linkedCts.Token);
+                    await _observer.OnNextAsync(value, scope.Token);
                 }
             }
 
             async ValueTask ForwardOnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await _observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 
@@ -623,19 +623,19 @@ public static partial class AsyncObservable
 
             async ValueTask ForwardOnNextAsync(T value, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnNextAsync(value, linkedCts.Token);
+                    await _observer.OnNextAsync(value, scope.Token);
                 }
             }
 
             async ValueTask ForwardOnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
                 using (await _gate.LockAsync())
                 {
-                    await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await _observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 

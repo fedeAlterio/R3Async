@@ -19,15 +19,7 @@ public static partial class AsyncObservable
         {
             if (accumulator is null) throw new ArgumentNullException(nameof(accumulator));
 
-            return Create<TAcc>(async (observer, subscribeToken) =>
-            {
-                var acc = seed;
-                return await @this.SubscribeAsync(async (x, token) =>
-                {
-                    acc = await accumulator(acc, x, token);
-                    await observer.OnNextAsync(acc, token);
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
-            });
+            return new ScanAsyncObservable<T, TAcc>(@this, seed, accumulator);
         }
 
         /// <summary>
@@ -41,15 +33,57 @@ public static partial class AsyncObservable
         {
             if (accumulator is null) throw new ArgumentNullException(nameof(accumulator));
 
-            return Create<TAcc>(async (observer, subscribeToken) =>
-            {
-                var acc = seed;
-                return await @this.SubscribeAsync((x, token) =>
-                {
-                    acc = accumulator(acc, x);
-                    return observer.OnNextAsync(acc, token);
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
-            });
+            return new ScanObservable<T, TAcc>(@this, seed, accumulator);
         }
+    }
+}
+
+sealed class ScanObservable<T, TAcc>(AsyncObservable<T> source, TAcc seed, Func<TAcc, T, TAcc> accumulator) : AsyncObservable<TAcc>
+{
+    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TAcc> observer, CancellationToken cancellationToken)
+    {
+        return source.SubscribeAsync(new ScanObserver(observer, seed, accumulator), cancellationToken);
+    }
+
+    sealed class ScanObserver(AsyncObserver<TAcc> observer, TAcc seed, Func<TAcc, T, TAcc> accumulator) : AsyncObserver<T>
+    {
+        TAcc _acc = seed;
+
+        protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+        {
+            _acc = accumulator(_acc, value);
+            return observer.OnNextAsync(_acc, cancellationToken);
+        }
+
+        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            => observer.OnErrorResumeAsync(error, cancellationToken);
+
+        protected override ValueTask OnCompletedAsyncCore(Result result)
+            => observer.OnCompletedAsync(result);
+    }
+}
+
+sealed class ScanAsyncObservable<T, TAcc>(AsyncObservable<T> source, TAcc seed, Func<TAcc, T, CancellationToken, ValueTask<TAcc>> accumulator) : AsyncObservable<TAcc>
+{
+    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TAcc> observer, CancellationToken cancellationToken)
+    {
+        return source.SubscribeAsync(new ScanAsyncObserver(observer, seed, accumulator), cancellationToken);
+    }
+
+    sealed class ScanAsyncObserver(AsyncObserver<TAcc> observer, TAcc seed, Func<TAcc, T, CancellationToken, ValueTask<TAcc>> accumulator) : AsyncObserver<T>
+    {
+        TAcc _acc = seed;
+
+        protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+        {
+            _acc = await accumulator(_acc, value, cancellationToken);
+            await observer.OnNextAsync(_acc, cancellationToken);
+        }
+
+        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            => observer.OnErrorResumeAsync(error, cancellationToken);
+
+        protected override ValueTask OnCompletedAsyncCore(Result result)
+            => observer.OnCompletedAsync(result);
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -103,7 +103,13 @@ public record AsyncContext
                 return;
             }
 
-            var ts = asyncContext.TaskScheduler ?? TaskScheduler.Default;
+            var ts = asyncContext.TaskScheduler;
+            if (ts is null || ts == TaskScheduler.Default)
+            {
+                ThreadPool.QueueUserWorkItem(c => c(), continuation, preferLocal: false);
+                return;
+            }
+
             Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.DenyChildAttach, ts);
         }
     }

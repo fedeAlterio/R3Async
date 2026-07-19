@@ -159,19 +159,19 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         public async ValueTask OnNextInnerAsync(T value, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             using (await _observerOnSomethingGate.LockAsync())
             {
-                await _observer.OnNextAsync(value, linkedCts.Token);
+                await _observer.OnNextAsync(value, scope.Token);
             }
         }
 
         public async ValueTask OnErrorInnerAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             using (await _observerOnSomethingGate.LockAsync())
             {
-                await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                await _observer.OnErrorResumeAsync(error, scope.Token);
             }
         }
 
@@ -209,10 +209,10 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 => subscription.OnNextOuterAsync(value);
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposeCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposeCancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
-                    await subscription._observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await subscription._observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
             protected override ValueTask OnCompletedAsyncCore(Result result)

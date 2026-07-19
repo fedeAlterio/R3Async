@@ -14,8 +14,8 @@ internal abstract class TaskAsyncObserverBase<T, TTaskValue>(CancellationToken c
     {
         try
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken, cancellationToken);
-            return await _tcs.Task.WaitAsync(timeout ?? Timeout.InfiniteTimeSpan, linkedCts.Token);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _cancellationToken);
+            return await _tcs.Task.WaitAsync(timeout ?? Timeout.InfiniteTimeSpan, scope.Token);
         }
         finally
         {

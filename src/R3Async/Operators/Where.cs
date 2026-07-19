@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,16 +14,7 @@ public static partial class AsyncObservable
         /// <param name="predicate">Async predicate evaluated for each value; values are dropped while it is awaited unless they pass.</param>
         public AsyncObservable<T> Where(Func<T, CancellationToken, ValueTask<bool>> predicate)
         {
-            return Create<T>(async (observer, subscribeToken) =>
-            {
-                return await @this.SubscribeAsync(async (x, token) =>
-                {
-                    if (await predicate(x, token))
-                    {
-                        await observer.OnNextAsync(x, token);
-                    }
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
-            });
+            return new WhereAsyncObservable<T>(@this, predicate);
         }
 
         /// <summary>
@@ -32,18 +23,52 @@ public static partial class AsyncObservable
         /// <param name="predicate">Synchronous predicate evaluated for each value.</param>
         public AsyncObservable<T> Where(Func<T, bool> predicate)
         {
-            return Create<T>(async (observer, subscribeToken) =>
-            {
-                return await @this.SubscribeAsync((x, token) =>
-                {
-                    if (predicate(x))
-                    {
-                        return observer.OnNextAsync(x, token);
-                    }
-
-                    return default;
-                }, observer.OnErrorResumeAsync, observer.OnCompletedAsync, subscribeToken);
-            });
+            return new WhereObservable<T>(@this, predicate);
         }
+    }
+}
+
+sealed class WhereObservable<T>(AsyncObservable<T> source, Func<T, bool> predicate) : AsyncObservable<T>
+{
+    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
+    {
+        return source.SubscribeAsync(new WhereObserver(observer, predicate), cancellationToken);
+    }
+
+    sealed class WhereObserver(AsyncObserver<T> observer, Func<T, bool> predicate) : AsyncObserver<T>
+    {
+        protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+            => predicate(value) ? observer.OnNextAsync(value, cancellationToken) : default;
+
+        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            => observer.OnErrorResumeAsync(error, cancellationToken);
+
+        protected override ValueTask OnCompletedAsyncCore(Result result)
+            => observer.OnCompletedAsync(result);
+    }
+}
+
+sealed class WhereAsyncObservable<T>(AsyncObservable<T> source, Func<T, CancellationToken, ValueTask<bool>> predicate) : AsyncObservable<T>
+{
+    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
+    {
+        return source.SubscribeAsync(new WhereAsyncObserver(observer, predicate), cancellationToken);
+    }
+
+    sealed class WhereAsyncObserver(AsyncObserver<T> observer, Func<T, CancellationToken, ValueTask<bool>> predicate) : AsyncObserver<T>
+    {
+        protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
+        {
+            if (await predicate(value, cancellationToken))
+            {
+                await observer.OnNextAsync(value, cancellationToken);
+            }
+        }
+
+        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
+            => observer.OnErrorResumeAsync(error, cancellationToken);
+
+        protected override ValueTask OnCompletedAsyncCore(Result result)
+            => observer.OnCompletedAsync(result);
     }
 }

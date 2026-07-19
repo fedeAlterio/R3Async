@@ -90,7 +90,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             using (await _gate.LockAsync())
             {
                 if (_terminated) return;
@@ -103,7 +103,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
 
                 if (_emitFirst)
                 {
-                    await _observer.OnNextAsync(value, linkedCts.Token);
+                    await _observer.OnNextAsync(value, scope.Token);
                 }
                 else
                 {
@@ -144,10 +144,10 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             using (await _gate.LockAsync())
             {
-                await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                await _observer.OnErrorResumeAsync(error, scope.Token);
             }
         }
 

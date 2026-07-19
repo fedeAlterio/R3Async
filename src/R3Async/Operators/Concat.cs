@@ -121,14 +121,14 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
 
         async ValueTask OnInnerErrorResumeAsync(Exception exception, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, cancellationToken);
-            await _observer.OnErrorResumeAsync(exception, linkedCts.Token);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposedCancellationToken);
+            await _observer.OnErrorResumeAsync(exception, scope.Token);
         }
 
         async ValueTask OnInnerNextAsync(T value, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, cancellationToken);
-            await _observer.OnNextAsync(value, linkedCts.Token);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposedCancellationToken);
+            await _observer.OnNextAsync(value, scope.Token);
         }
 
         async ValueTask CompleteAsync(Result? result)
@@ -348,10 +348,10 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
                 => subscription.OnNextOuterAsync(value);
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposedCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposedCancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
-                    await subscription._observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await subscription._observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 
@@ -363,19 +363,19 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         {
             protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposedCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposedCancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
-                    await subscription._observer.OnNextAsync(value, linkedCts.Token);
+                    await subscription._observer.OnNextAsync(value, scope.Token);
                 }
             }
 
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(subscription._disposedCancellationToken, cancellationToken);
+                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposedCancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
-                    await subscription._observer.OnErrorResumeAsync(error, linkedCts.Token);
+                    await subscription._observer.OnErrorResumeAsync(error, scope.Token);
                 }
             }
 

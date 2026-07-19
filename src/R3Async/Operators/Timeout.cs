@@ -77,13 +77,13 @@ internal sealed class TimeoutObservable<T>(AsyncObservable<T> source, TimeSpan d
 
         async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             long version;
             using (await _gate.LockAsync())
             {
                 if (_terminated) return;
                 version = unchecked(++_version);
-                await _observer.OnNextAsync(value, linkedCts.Token);
+                await _observer.OnNextAsync(value, scope.Token);
             }
 
             await ScheduleTimerAsync(version);
@@ -127,11 +127,11 @@ internal sealed class TimeoutObservable<T>(AsyncObservable<T> source, TimeSpan d
 
         async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             using (await _gate.LockAsync())
             {
                 if (_terminated) return;
-                await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                await _observer.OnErrorResumeAsync(error, scope.Token);
             }
         }
 

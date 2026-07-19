@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using R3Async.Internals;
 
 namespace R3Async;
 
@@ -83,10 +83,10 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     /// </summary>
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
     {
-        if (!TryEnterOnSomethingCall(cancellationToken, out var linkedCts))
+        if (!TryEnterOnSomethingCall(cancellationToken, out var scope))
             return;
 
-        var linkedToken = linkedCts.Token;
+        var linkedToken = scope.Token;
         try
         {
             await OnNextAsyncCore(value, linkedToken);
@@ -101,7 +101,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
         finally
         {
-            linkedCts.Dispose();
+            scope.Dispose();
             ExitOnSomethingCall();
         }
     }
@@ -111,13 +111,13 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     protected abstract ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken);
 
     [DebuggerStepThrough]
-    bool TryEnterOnSomethingCall(CancellationToken cancellationToken, [NotNullWhen(true)] out CancellationTokenSource? linkedCts)
+    bool TryEnterOnSomethingCall(CancellationToken cancellationToken, out LinkedTokenScope scope)
     {
         lock (_callToken)
         {
             if (_disposeCts.IsCancellationRequested || cancellationToken.IsCancellationRequested)
             {
-                linkedCts = null;
+                scope = default;
                 return false;
             }
 
@@ -135,11 +135,11 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             else
             {
                 UnhandledExceptionHandler.OnUnhandledException(new ConcurrentObserverCallsException());
-                linkedCts = null;
+                scope = default;
                 return false;
             }
 
-            linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+            scope = LinkedTokenScope.Create(cancellationToken, _disposeCts.Token);
             return true;
         }
     }
@@ -180,16 +180,16 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     /// </summary>
     public async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
     {
-        if (!TryEnterOnSomethingCall(cancellationToken, out var linkedCts))
+        if (!TryEnterOnSomethingCall(cancellationToken, out var scope))
             return;
 
         try
         {
-            await OnErrorResumeAsync_Private(error, linkedCts.Token);
+            await OnErrorResumeAsync_Private(error, scope.Token);
         }
         finally
         {
-            linkedCts.Dispose();
+            scope.Dispose();
             ExitOnSomethingCall();
         }
     }
@@ -230,7 +230,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     [DebuggerStepThrough]
     public async ValueTask OnCompletedAsync(Result result)
     {
-        if (!TryEnterOnSomethingCall(CancellationToken.None, out var linkedCts))
+        if (!TryEnterOnSomethingCall(CancellationToken.None, out var scope))
             return;
 
         try
@@ -243,7 +243,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
         }
         finally
         {
-            linkedCts.Dispose();
+            scope.Dispose();
             if (ExitOnSomethingCall())
             {
                 await DisposeAsync();

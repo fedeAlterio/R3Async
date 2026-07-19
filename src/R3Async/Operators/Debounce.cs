@@ -48,10 +48,8 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
         readonly AsyncGate _gate = new();
-        readonly TimeProvider _timeProvider;
-        readonly SerialAsyncDisposable _timerDisposable = new();
+        readonly ITimer _timer;
         Optional<T> _pending;
-        long _version;
         bool _sourceCompleted;
         bool _terminated;
 
@@ -59,8 +57,11 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
         {
             _observer = observer;
             _dueTime = dueTime;
-            _timeProvider = timeProvider;
             _disposeCancellationToken = _disposeCts.Token;
+            _timer = timeProvider.CreateTimer(static state =>
+            {
+                ((DebounceSubscription)state!).OnTimerFired();
+            }, this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }
 
         public async ValueTask SubscribeAsync(AsyncObservable<T> source, CancellationToken subscriptionToken)
@@ -71,30 +72,21 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnNextAsync(T value)
         {
-            long version;
             using (await _gate.LockAsync())
             {
                 if (_terminated || _sourceCompleted) return;
                 _pending = new Optional<T>(value);
-                version = unchecked(++_version);
+                _timer.Change(_dueTime, Timeout.InfiniteTimeSpan);
             }
-
-            var timerSubscription = _timeProvider.CreateTimer(static state =>
-            {
-                var (self, scheduledVersion) = ((DebounceSubscription, long))state!;
-                self.OnTimerFired(scheduledVersion);
-            }, (this, version), _dueTime, Timeout.InfiniteTimeSpan);
-            await _timerDisposable.SetDisposableAsync(timerSubscription);
         }
 
-        async void OnTimerFired(long version)
+        async void OnTimerFired()
         {
             try
             {
                 using (await _gate.LockAsync())
                 {
                     if (_terminated || _sourceCompleted || !_pending.HasValue || _disposeCancellationToken.IsCancellationRequested) return;
-                    if (version != _version) return;
                     var value = _pending.Value!;
                     _pending = Optional<T>.Empty;
 
@@ -109,10 +101,10 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellationToken, cancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
             using (await _gate.LockAsync())
             {
-                await _observer.OnErrorResumeAsync(error, linkedCts.Token);
+                await _observer.OnErrorResumeAsync(error, scope.Token);
             }
         }
 
@@ -120,7 +112,7 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask FlushAndCompleteAsync()
         {
-            await _timerDisposable.DisposeAsync();
+            await _timer.DisposeAsync();
             using (await _gate.LockAsync())
             {
                 if (_terminated || _sourceCompleted || _disposeCancellationToken.IsCancellationRequested) return;
@@ -151,7 +143,7 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
             }
 
             _disposeCts.Cancel();
-            await _timerDisposable.DisposeAsync();
+            await _timer.DisposeAsync();
             if (result is not null)
             {
                 using (await _gate.LockAsync())

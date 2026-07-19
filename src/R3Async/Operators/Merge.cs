@@ -99,7 +99,7 @@ public static partial class AsyncObservable
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> @this, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DisposedCancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
 
             var outerSubscription = await @this.SubscribeAsync((x, _) => SubscribeInnerAsync(x), ForwardOnErrorResume, result =>
             {
@@ -111,7 +111,7 @@ public static partial class AsyncObservable
                 }
 
                 return shouldComplete ? CompleteAsync(result) : default;
-            }, linkedCts.Token);
+            }, scope.Token);
 
             await _outerDisposable.SetDisposableAsync(outerSubscription);
         }
@@ -134,21 +134,21 @@ public static partial class AsyncObservable
         async ValueTask ForwardOnNext(T value, CancellationToken cancellationToken)
         {
             if (_disposed) return;
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DisposedCancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
             using (await _onSomethingGate.LockAsync())
             {
                 if (_disposed) return;
-                await _observer.OnNextAsync(value, linkedCts.Token);
+                await _observer.OnNextAsync(value, scope.Token);
             }
         }
 
         async ValueTask ForwardOnErrorResume(Exception exception, CancellationToken cancellationToken)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DisposedCancellationToken);
+            using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
             using (await _onSomethingGate.LockAsync())
             {
                 if (_disposed) return;
-                await _observer.OnErrorResumeAsync(exception, linkedCts.Token);
+                await _observer.OnErrorResumeAsync(exception, scope.Token);
             }
         }
 
@@ -366,21 +366,21 @@ public static partial class AsyncObservable
 
             async ValueTask OnNextAsync(T value, CancellationToken token)
             {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, token);
+                using var scope = LinkedTokenScope.Create(token, _disposedCancellationToken);
                 using (await _onSomethingGate.LockAsync())
                 {
                     if (_disposed) return;
-                    await _observer.OnNextAsync(value, linked.Token);
+                    await _observer.OnNextAsync(value, scope.Token);
                 }
             }
 
             async ValueTask OnErrorResumeAsync(Exception ex, CancellationToken token)
             {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposedCancellationToken, token);
+                using var scope = LinkedTokenScope.Create(token, _disposedCancellationToken);
                 using (await _onSomethingGate.LockAsync())
                 {
                     if (_disposed) return;
-                    await _observer.OnErrorResumeAsync(ex, linked.Token);
+                    await _observer.OnErrorResumeAsync(ex, scope.Token);
                 }
             }
 
