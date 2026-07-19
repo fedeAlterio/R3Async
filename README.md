@@ -188,6 +188,7 @@ Transform and compose observable streams:
 - `ThrottleFirst` - Emit the first value of each time window and drop the rest
 - `ThrottleLast` - Emit only the latest value of each time window, when the window expires
 - `ThrottleFirstLast` - Emit the first value of each time window immediately, then the latest value when the window expires
+- `Timeout` - Fail with a `TimeoutException` if no value is observed within a time window (measured from subscription and reset on each value)
 
 #### Concurrency & Scheduling
 - `ObserveOn` - Control execution context for downstream operators

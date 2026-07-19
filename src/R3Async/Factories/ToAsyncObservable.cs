@@ -12,7 +12,7 @@ public static partial class AsyncObservable
     {
         return CreateAsBackgroundJob<T>(async (obs, cancellationToken) =>
         {
-            var result = await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
+            var result = await @this.WaitAsync(System.Threading.Timeout.InfiniteTimeSpan, cancellationToken);
             await obs.OnNextAsync(result, cancellationToken);
             await obs.OnCompletedAsync(Result.Success);
         }, true);
@@ -22,7 +22,7 @@ public static partial class AsyncObservable
     {
         return CreateAsBackgroundJob<Unit>(async (obs, cancellationToken) =>
         {
-            await @this.WaitAsync(Timeout.InfiniteTimeSpan, cancellationToken);
+            await @this.WaitAsync(System.Threading.Timeout.InfiniteTimeSpan, cancellationToken);
             await obs.OnNextAsync(Unit.Default, cancellationToken);
             await obs.OnCompletedAsync(Result.Success);
         }, true);

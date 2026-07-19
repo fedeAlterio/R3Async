@@ -62,6 +62,29 @@ public static class AsyncObservableSubscribeExtensions
             return source.SubscribeAsync(observer, cancellationToken);
         }
 
+        public ValueTask<IAsyncDisposable> SubscribeAsync(Func<T, CancellationToken, ValueTask> onNextAsync,
+                                                          Action<Exception>? onErrorResume,
+                                                          Action<Result>? onCompleted = null,
+                                                          CancellationToken cancellationToken = default)
+        {
+            if (onNextAsync is null)
+                throw new ArgumentNullException(nameof(onNextAsync));
+            if (source is null)
+                throw new ArgumentNullException(nameof(source));
+
+            var observer = new AnonymousAsyncObserver<T>(onNextAsync, onErrorResume is null ? null : (e, _) =>
+            {
+                onErrorResume(e);
+                return default;
+            }, onCompleted is null ? null : x =>
+            {
+                onCompleted(x);
+                return default;
+            });
+
+            return source.SubscribeAsync(observer, cancellationToken);
+        }
+
         public ValueTask<IAsyncDisposable> SubscribeAsync()
         {
             return source.SubscribeAsync(static (_, _)  => default, CancellationToken.None);
