@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace R3Async.Internals;
+namespace R3Async;
 
 public readonly struct Optional<T>
 {
@@ -14,13 +13,13 @@ public readonly struct Optional<T>
     public T? Value => HasValue ? _value : throw new InvalidOperationException("Impossible retrieve a value for an empty optional");
 }
 
-internal static class OptionalExtensions
+public static class OptionalExtensions
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryGetValue<T>(this Optional<T> @this, [NotNullWhen(true)] out T? value)
+    public static bool TryGetValue<T>(this Optional<T> @this, out T value)
     {
         var hasValue = @this.HasValue;
-        value = hasValue ? @this.Value : default;
+        value = hasValue ? @this.Value! : default!;
         return hasValue;
     }
 }

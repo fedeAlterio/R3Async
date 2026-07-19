@@ -21,13 +21,13 @@ public static partial class AsyncObservable
         {
             var onErrorResumeAsync = onErrorResume ?? ((e, _) =>
             {
-                channelWriter.Complete(e);
+                channelWriter.TryComplete(e);
                 return default;
             });
 
             return @this.SubscribeAsync(channelWriter.WriteAsync, onErrorResumeAsync, result =>
             {
-                channelWriter.Complete(result.Exception);
+                channelWriter.TryComplete(result.Exception);
                 return default;
             }, cancellationToken);
         }

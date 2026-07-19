@@ -46,6 +46,6 @@ public class RangeTest
         results.Count.ShouldBe(1);
         firstReceived.Task.IsCompletedSuccessfully.ShouldBeTrue();
         results[0].ShouldBe(0);
-        firstReceived.Task.Result.ShouldBe(0);
+        (await firstReceived.Task).ShouldBe(0);
     }
 }

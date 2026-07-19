@@ -211,12 +211,12 @@ public static partial class AsyncObservable
             public async ValueTask DisposeAsync()
             {
                 _cts.Cancel();
-                _cts.Dispose();
                 _tokenRegistration?.Dispose();
                 if (_subscription is not null)
                 {
                     await _subscription.DisposeAsync();
                 }
+                _cts.Dispose();
             }
 
             sealed class SourceObserver(Subscription parent) : AsyncObserver<T>
@@ -292,11 +292,11 @@ public static partial class AsyncObservable
                     {
                         if (result.IsFailure)
                         {
-                            tcs.SetException(result.Exception);
+                            tcs.TrySetException(result.Exception);
                         }
                         else
                         {
-                            tcs.SetResult(null);
+                            tcs.TrySetResult(null);
                         }
                     }
 
@@ -371,11 +371,11 @@ public static partial class AsyncObservable
             public async ValueTask DisposeAsync()
             {
                 _cts.Cancel();
-                _cts.Dispose();
                 if (_subscription is not null)
                 {
                     await _subscription.DisposeAsync();
                 }
+                _cts.Dispose();
             }
 
             sealed class SourceObserver(Subscription parent) : AsyncObserver<T>
@@ -498,11 +498,11 @@ public static partial class AsyncObservable
             public async ValueTask DisposeAsync()
             {
                 _cts.Cancel();
-                _cts.Dispose();
                 if (_subscription is not null)
                 {
                     await _subscription.DisposeAsync();
                 }
+                _cts.Dispose();
             }
 
             sealed class SourceObserver(Subscription parent) : AsyncObserver<T>

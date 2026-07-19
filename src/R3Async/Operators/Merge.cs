@@ -286,7 +286,8 @@ public static partial class AsyncObservable
                     {
                         foreach (var src in _sources)
                         {
-                            _disposedCancellationToken.ThrowIfCancellationRequested();
+                            if (_disposedCancellationToken.IsCancellationRequested)
+                                return;
                             lock (_onSomethingGate)
                             {
                                 _active++;
@@ -298,7 +299,7 @@ public static partial class AsyncObservable
                             {
                                 await src.SubscribeAsync(innerObserver, _disposedCancellationToken);
                             }
-                            catch (TaskCanceledException)
+                            catch (OperationCanceledException)
                             {
                                 return;
                             }
