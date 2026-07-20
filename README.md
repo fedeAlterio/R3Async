@@ -174,6 +174,7 @@ Transform and compose observable streams:
 - `Switch` - Switch to latest sequence
 - `Prepend` - Add values at the start
 - `CombineLatest` - Combine multiple observables and emit their latest notified values
+- `Zip` - Combine multiple observables pairwise by index
 
 #### Error Handling
 - `Catch` - Handle and recover from errors
@@ -996,19 +997,10 @@ var observable = asyncObservable.ToObservable(new ToObservableConfiguration
 });
 ```
 
-## Missing Features
-
-R3Async is currently under development and some features from R3 and Rx.NET are not yet implemented:
-
-- **Zip** - Combine multiple observables pairwise
-- **Race (Amb)** - Return the first observable to emit
-- **Others..**
-
-### Design Decisions
+## Design Decisions
 
 - **No ConfigureAwait(false)** - By design, R3Async does not use `ConfigureAwait(false)`. This is a deliberate choice to maintain context flow and avoid potential issues with context loss. For more context on this decision, see [dotnet/runtime#113567](https://github.com/dotnet/runtime/issues/113567) and [dotnet/reactive#1967](https://github.com/dotnet/reactive/discussions/1967). This design choice is particularly important for `ObserveOn`, which preserves execution context throughout the operator chain.
 
-These features may be added in future releases.
 ## Related Projects
 
 - [R3](https://github.com/Cysharp/R3) - The synchronous Reactive Extensions library that R3Async is based on
