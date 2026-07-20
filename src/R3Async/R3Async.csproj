@@ -63,6 +63,10 @@
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>CombineLatest.cs</LastGenOutput>
     </None>
+    <None Update="Operators\Zip.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Zip.cs</LastGenOutput>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -74,6 +78,11 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>CombineLatest.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Operators\Zip.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Zip.tt</DependentUpon>
     </Compile>
   </ItemGroup>
 
