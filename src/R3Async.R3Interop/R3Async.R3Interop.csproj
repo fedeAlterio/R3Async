@@ -11,7 +11,7 @@
     <Description>R3 &lt;-&gt; R3Async interop extensions</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/fedeAlterio/R3Async</RepositoryUrl>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/fedeAlterio/R3Async</PackageProjectUrl>
