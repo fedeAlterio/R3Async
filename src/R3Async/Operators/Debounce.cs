@@ -48,6 +48,7 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
         readonly AsyncGate _gate = new();
+        readonly object _stateGate = new();
         readonly ITimer _timer;
         Optional<T> _pending;
         bool _sourceCompleted;
@@ -72,11 +73,14 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnNextAsync(T value)
         {
-            using (await _gate.LockAsync())
+            using (await _gate.LockAsync(_disposeCancellationToken))
             {
-                if (_terminated || _sourceCompleted) return;
-                _pending = new Optional<T>(value);
-                _timer.Change(_dueTime, Timeout.InfiniteTimeSpan);
+                lock (_stateGate)
+                {
+                    if (_terminated || _sourceCompleted) return;
+                    _pending = new Optional<T>(value);
+                    _timer.Change(_dueTime, Timeout.InfiniteTimeSpan);
+                }
             }
         }
 
@@ -86,9 +90,13 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
             {
                 using (await _gate.LockAsync())
                 {
-                    if (_terminated || _sourceCompleted || !_pending.HasValue || _disposeCancellationToken.IsCancellationRequested) return;
-                    var value = _pending.Value!;
-                    _pending = Optional<T>.Empty;
+                    T value;
+                    lock (_stateGate)
+                    {
+                        if (_terminated || _sourceCompleted || !_pending.HasValue || _disposeCancellationToken.IsCancellationRequested) return;
+                        value = _pending.Value!;
+                        _pending = Optional<T>.Empty;
+                    }
 
                     await _observer.OnNextAsync(value, _disposeCancellationToken);
                 }
@@ -113,14 +121,19 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
         async ValueTask FlushAndCompleteAsync()
         {
             await _timer.DisposeAsync();
-            using (await _gate.LockAsync())
+            Optional<T> pending;
+
+            lock (_stateGate)
             {
                 if (_terminated || _sourceCompleted || _disposeCancellationToken.IsCancellationRequested) return;
                 _sourceCompleted = true;
                 _terminated = true;
-                var pending = _pending;
+                pending = _pending;
                 _pending = Optional<T>.Empty;
+            }
 
+            using (await _gate.LockAsync())
+            {
                 if (pending.HasValue)
                 {
                     await _observer.OnNextAsync(pending.Value!, _disposeCancellationToken);
@@ -135,7 +148,7 @@ internal sealed class DebounceObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask CompleteAsync(Result? result)
         {
-            using (await _gate.LockAsync())
+            lock (_stateGate)
             {
                 if (_terminated) return;
                 _terminated = true;

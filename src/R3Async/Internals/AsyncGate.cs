@@ -21,6 +21,38 @@ namespace R3Async.Internals
         private LockOwner? _currentOwner;
 
         [DebuggerStepThrough]
+        public ValueTask<Releaser> LockAsync(CancellationToken cancellationToken)
+        {
+            LockOwner newOwner;
+
+            lock (_gate)
+            {
+                var owner = _owner.Value;
+
+                if (owner is not null && ReferenceEquals(owner, _currentOwner))
+                {
+                    owner.RecursionCount++;
+                    return new ValueTask<Releaser>(new Releaser(this, owner));
+                }
+
+                newOwner = new LockOwner();
+                _owner.Value = newOwner;
+            }
+
+            return new ValueTask<Releaser>(_semaphore.WaitAsync(cancellationToken).ContinueWith(task =>
+            {
+                task.GetAwaiter().GetResult();
+
+                lock (_gate)
+                {
+                    _currentOwner = newOwner;
+                }
+
+                return new Releaser(this, newOwner);
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default));
+        }
+
+        [DebuggerStepThrough]
         public ValueTask<Releaser> LockAsync()
         {
             LockOwner newOwner;

@@ -66,6 +66,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
         readonly AsyncGate _gate = new();
+        readonly object _stateGate = new();
         readonly TimeProvider _timeProvider;
         readonly SerialAsyncDisposable _timerDisposable = new();
         Optional<T> _pending;
@@ -91,23 +92,24 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
         async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
         {
             using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
-            using (await _gate.LockAsync())
+            using (await _gate.LockAsync(_disposeCancellationToken))
             {
-                if (_terminated) return;
-                if (_throttling)
+                lock (_stateGate)
                 {
-                    if (_emitLast) _pending = new Optional<T>(value);
-                    return;
+                    if (_terminated) return;
+                    if (_throttling)
+                    {
+                        if (_emitLast) _pending = new Optional<T>(value);
+                        return;
+                    }
+                    _throttling = true;
+
+                    if (!_emitFirst) _pending = new Optional<T>(value);
                 }
-                _throttling = true;
 
                 if (_emitFirst)
                 {
                     await _observer.OnNextAsync(value, scope.Token);
-                }
-                else
-                {
-                    _pending = new Optional<T>(value);
                 }
             }
 
@@ -125,10 +127,14 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
             {
                 using (await _gate.LockAsync())
                 {
-                    if (_terminated || _disposeCancellationToken.IsCancellationRequested) return;
-                    _throttling = false;
-                    var pending = _pending;
-                    _pending = Optional<T>.Empty;
+                    Optional<T> pending;
+                    lock (_stateGate)
+                    {
+                        if (_terminated || _disposeCancellationToken.IsCancellationRequested) return;
+                        _throttling = false;
+                        pending = _pending;
+                        _pending = Optional<T>.Empty;
+                    }
 
                     if (pending.HasValue)
                     {
@@ -156,13 +162,18 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
         async ValueTask FlushAndCompleteAsync()
         {
             await _timerDisposable.DisposeAsync();
-            using (await _gate.LockAsync())
+            Optional<T> pending;
+
+            lock (_stateGate)
             {
                 if (_terminated || _disposeCancellationToken.IsCancellationRequested) return;
                 _terminated = true;
-                var pending = _pending;
+                pending = _pending;
                 _pending = Optional<T>.Empty;
+            }
 
+            using (await _gate.LockAsync())
+            {
                 if (pending.HasValue)
                 {
                     await _observer.OnNextAsync(pending.Value!, _disposeCancellationToken);
@@ -177,7 +188,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask CompleteAsync(Result? result)
         {
-            using (await _gate.LockAsync())
+            lock (_stateGate)
             {
                 if (_terminated) return;
                 _terminated = true;

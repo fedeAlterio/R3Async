@@ -135,7 +135,7 @@ public static partial class AsyncObservable
         {
             if (_disposed) return;
             using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
-            using (await _onSomethingGate.LockAsync())
+            using (await _onSomethingGate.LockAsync(DisposedCancellationToken))
             {
                 if (_disposed) return;
                 await _observer.OnNextAsync(value, scope.Token);
@@ -145,7 +145,7 @@ public static partial class AsyncObservable
         async ValueTask ForwardOnErrorResume(Exception exception, CancellationToken cancellationToken)
         {
             using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
-            using (await _onSomethingGate.LockAsync())
+            using (await _onSomethingGate.LockAsync(DisposedCancellationToken))
             {
                 if (_disposed) return;
                 await _observer.OnErrorResumeAsync(exception, scope.Token);
@@ -290,6 +290,7 @@ public static partial class AsyncObservable
             readonly CancellationTokenSource _cts = new();
             readonly CancellationToken _disposedCancellationToken;
             readonly AsyncGate _onSomethingGate = new();
+            readonly object _stateGate = new();
             readonly TaskCompletionSource<bool> _subscriptionFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
             readonly AsyncLocal<bool> _reentrant = new();
             int _active;
@@ -315,7 +316,7 @@ public static partial class AsyncObservable
                         {
                             if (_disposedCancellationToken.IsCancellationRequested)
                                 return;
-                            lock (_onSomethingGate)
+                            lock (_stateGate)
                             {
                                 _active++;
                             }
@@ -338,7 +339,7 @@ public static partial class AsyncObservable
                         }
 
                         bool shouldComplete;
-                        lock (_onSomethingGate)
+                        lock (_stateGate)
                         {
                             _enumerationCompleted = true;
                             shouldComplete = _active == 0;
@@ -367,9 +368,13 @@ public static partial class AsyncObservable
             async ValueTask OnNextAsync(T value, CancellationToken token)
             {
                 using var scope = LinkedTokenScope.Create(token, _disposedCancellationToken);
-                using (await _onSomethingGate.LockAsync())
+                using (await _onSomethingGate.LockAsync(_disposedCancellationToken))
                 {
-                    if (_disposed) return;
+                    lock (_stateGate)
+                    {
+                        if (_disposed) return;
+                    }
+
                     await _observer.OnNextAsync(value, scope.Token);
                 }
             }
@@ -377,9 +382,13 @@ public static partial class AsyncObservable
             async ValueTask OnErrorResumeAsync(Exception ex, CancellationToken token)
             {
                 using var scope = LinkedTokenScope.Create(token, _disposedCancellationToken);
-                using (await _onSomethingGate.LockAsync())
+                using (await _onSomethingGate.LockAsync(_disposedCancellationToken))
                 {
-                    if (_disposed) return;
+                    lock (_stateGate)
+                    {
+                        if (_disposed) return;
+                    }
+
                     await _observer.OnErrorResumeAsync(ex, scope.Token);
                 }
             }
@@ -392,7 +401,7 @@ public static partial class AsyncObservable
                 }
 
                 bool shouldComplete;
-                lock (_onSomethingGate)
+                lock (_stateGate)
                 {
                     _active--;
                     shouldComplete = _active == 0 && _enumerationCompleted;
@@ -403,7 +412,7 @@ public static partial class AsyncObservable
 
             async ValueTask CompleteAsync(Result? result)
             {
-                using (await _onSomethingGate.LockAsync())
+                lock (_stateGate)
                 {
                     if (_disposed)
                     {
