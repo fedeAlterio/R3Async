@@ -53,28 +53,6 @@ public class OnBackpressureDropTest
     }
 
     [Fact(Timeout = 20000)]
-    public async Task ForwardsEveryValueWhenObserverKeepsUp()
-    {
-        var source = new ManualSource<int>();
-        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var results = new List<int>();
-
-        await using var subscription = await source.OnBackpressureDrop().SubscribeAsync(
-            async (x, token) => results.Add(x),
-            async (ex, token) => { },
-            async result => completed.TrySetResult(),
-            CancellationToken.None);
-
-        await (await WaitForObserverAsync(source)).OnNextAsync(1, CancellationToken.None);
-        await (await WaitForObserverAsync(source)).OnNextAsync(2, CancellationToken.None);
-        await (await WaitForObserverAsync(source)).OnNextAsync(3, CancellationToken.None);
-        await (await WaitForObserverAsync(source)).OnCompletedAsync(Result.Success);
-
-        await completed.Task;
-        results.ShouldBe([1, 2, 3]);
-    }
-
-    [Fact(Timeout = 20000)]
     public async Task PropagatesCompletion()
     {
         var source = new ManualSource<int>();

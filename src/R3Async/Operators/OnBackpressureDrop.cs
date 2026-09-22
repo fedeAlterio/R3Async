@@ -32,14 +32,16 @@ public static partial class AsyncObservable
                         channel.Writer.TryWrite(x);
                         return default;
                     },
-                    observer.OnErrorResumeAsync,
-                    _ => { channel.Writer.TryComplete(); return default; },
+                    (e, _) => { channel.Writer.TryComplete(e); return default; },
+                    r => { channel.Writer.TryComplete(r.Exception); return default; },
                     token);
 
                 await foreach (var value in channel.Reader.ReadAllAsync(token))
                 {
                     await observer.OnNextAsync(value, token);
                 }
+
+                await observer.OnCompletedAsync(Result.Success);
             });
         }
     }
