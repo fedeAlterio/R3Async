@@ -82,6 +82,33 @@ namespace R3Async.Internals
             }));
         }
 
+        public bool TryLock(out Releaser releaser)
+        {
+            lock (_gate)
+            {
+                var owner = _owner.Value;
+
+                if (owner is not null && ReferenceEquals(owner, _currentOwner))
+                {
+                    owner.RecursionCount++;
+                    releaser = new Releaser(this, owner);
+                    return true;
+                }
+
+                if (!_semaphore.Wait(0))
+                {
+                    releaser = default;
+                    return false;
+                }
+
+                var newOwner = new LockOwner();
+                _owner.Value = newOwner;
+                _currentOwner = newOwner;
+                releaser = new Releaser(this, newOwner);
+                return true;
+            }
+        }
+
         private void Release(LockOwner owner)
         {
             lock (_gate)

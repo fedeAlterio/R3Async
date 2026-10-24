@@ -24,25 +24,17 @@ public class RefCountLazy<T>(Func<CancellationToken, ValueTask<AsyncDisposableVa
     /// reference. Dispose the returned reference to release it; the resource itself is disposed once all
     /// references have been disposed.
     /// </summary>
-    /// <param name="cancellationToken">Used only while creating the resource, if it does not already exist.</param>
+    /// <param name="cancellationToken">Used while waiting for the resource and while creating it, if it does not already exist.</param>
     public async ValueTask<IAsyncDisposableReference<T>> GetAsync(CancellationToken cancellationToken)
     {
-        using (await _gate.LockAsync())
+        using (await _gate.LockAsync(cancellationToken))
         {
-            while (true)
-            {
-                var connection = _connection;
-
-                if (connection is null)
-                {
-                    connection = new Connection(this, valueFactory);
-                    _connection = connection;
-                }
-                await connection.IncrementRefCount(cancellationToken);
-                if (_connection == connection) return new Reference(connection);
-            }
+            var connection = _connection ??= new Connection(this, valueFactory);
+            await connection.IncrementRefCount(cancellationToken);
+            return new Reference(connection);
         }
     }
+
     internal sealed class Connection(RefCountLazy<T> parent, Func<CancellationToken, ValueTask<AsyncDisposableValue<T>>> valueFactory)
 
     {
@@ -102,7 +94,7 @@ public class RefCountLazy<T>(Func<CancellationToken, ValueTask<AsyncDisposableVa
 
         /// <summary>The shared resource value. Throws <see cref="ObjectDisposedException"/> if this reference has already been disposed.</summary>
         public T Value => Volatile.Read(ref _disposed) == 1
-            ? throw new ObjectDisposedException($"{nameof(RefCountTable<,>)}.{nameof(Reference)}")
+            ? throw new ObjectDisposedException($"{nameof(RefCountLazy<>)}.{nameof(Reference)}")
             : _connection.Entry!.Value.Value;
     }
 }

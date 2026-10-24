@@ -294,6 +294,103 @@ public class DisposablesCoverageTest
         disposedCount.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task RefCountLazy_CancelledWhileWaitingForLock_DoesNotAffectCreation()
+    {
+        var created = 0;
+        var disposedCount = 0;
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lazy = new RefCountLazy<int>(async ct =>
+        {
+            created++;
+            await release.Task;
+            return new AsyncDisposableValue<int>
+            {
+                Value = 42,
+                Disposable = AsyncDisposable.Create(() => disposedCount++)
+            };
+        });
+
+        var creating = lazy.GetAsync(CancellationToken.None).AsTask();
+        using var cts = new CancellationTokenSource();
+        var waiting = lazy.GetAsync(cts.Token).AsTask();
+        cts.Cancel();
+        await Should.ThrowAsync<OperationCanceledException>(() => waiting);
+
+        release.SetResult();
+        var reference = await creating;
+        await reference.DisposeAsync();
+
+        created.ShouldBe(1);
+        disposedCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RefCountTable_CancelledWhileWaitingForLock_DoesNotAffectCreation()
+    {
+        var created = 0;
+        var disposedCount = 0;
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var table = RefCountTable.Create<string, int>(async (_, ct) =>
+        {
+            created++;
+            await release.Task;
+            return new AsyncDisposableValue<int>
+            {
+                Value = 42,
+                Disposable = AsyncDisposable.Create(() => disposedCount++)
+            };
+        });
+
+        var creating = table.GetOrCreateAsync("key", CancellationToken.None).AsTask();
+        using var cts = new CancellationTokenSource();
+        var waiting = table.GetOrCreateAsync("key", cts.Token).AsTask();
+        cts.Cancel();
+        await Should.ThrowAsync<OperationCanceledException>(() => waiting);
+
+        release.SetResult();
+        var reference = await creating;
+        await reference.DisposeAsync();
+
+        created.ShouldBe(1);
+        disposedCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RefCountTable_CancelledWhileWaitingForNewConnection_LeavesNoOrphan()
+    {
+        using var cts = new CancellationTokenSource();
+        var key = new CancellingKey(cts);
+        var created = 0;
+        var table = RefCountTable.Create<CancellingKey, int>((_, _) =>
+        {
+            created++;
+            return Task.FromResult(new AsyncDisposableValue<int> { Value = 42, Disposable = AsyncDisposable.Create(() => { }) });
+        });
+
+        await Should.ThrowAsync<OperationCanceledException>(async () =>
+            await table.GetOrCreateAsync(key, cts.Token));
+
+        created.ShouldBe(0);
+        var connections = (System.Collections.ICollection)typeof(RefCountTable<CancellingKey, int>)
+            .GetField("_subjectsByKey", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(table)!;
+        connections.Count.ShouldBe(0);
+
+        await using var reference = await table.GetOrCreateAsync(key, CancellationToken.None);
+        reference.Value.ShouldBe(42);
+        created.ShouldBe(1);
+    }
+
+    sealed class CancellingKey(CancellationTokenSource cts)
+    {
+        public override int GetHashCode()
+        {
+            cts.Cancel();
+            return 1;
+        }
+    }
+
     sealed class TestDisposable(Action onDispose) : IDisposable
     {
         public void Dispose() => onDispose();

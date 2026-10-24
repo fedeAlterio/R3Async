@@ -41,7 +41,7 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<Asyn
     /// same key creates a fresh resource.
     /// </summary>
     /// <param name="key">The key identifying the shared resource.</param>
-    /// <param name="cancellationToken">Used only while creating the resource for this key, if it does not already exist.</param>
+    /// <param name="cancellationToken">Used while waiting for the resource for this key and while creating it, if it does not already exist.</param>
     public async ValueTask<IAsyncDisposableReference<TValue>> GetOrCreateAsync(TKey key, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -86,7 +86,18 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<Asyn
 
         public async ValueTask<bool> IncrementRefCount(CancellationToken cancellationToken)
         {
-            using (await Gate.LockAsync())
+            AsyncGate.Releaser releaser;
+            try
+            {
+                releaser = await Gate.LockAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                RemoveIfAbandoned();
+                throw;
+            }
+
+            using (releaser)
             {
                 if (_connectionDisposed) return true;
 
@@ -105,6 +116,20 @@ public class RefCountTable<TKey, TValue>(Func<TKey, CancellationToken, Task<Asyn
                     // callers see it as disposed and retry with a fresh one.
                     SetDisposedAndDeleteFromDictionary();
                     throw;
+                }
+            }
+        }
+
+        // A caller cancelled while waiting for the gate may have been the one that added this connection
+        // to the dictionary. If nobody ever incremented it, remove it so it does not linger as an orphan.
+        void RemoveIfAbandoned()
+        {
+            if (!Gate.TryLock(out var releaser)) return;
+            using (releaser)
+            {
+                if (_refCount == 0 && Entry is null && !_connectionDisposed)
+                {
+                    SetDisposedAndDeleteFromDictionary();
                 }
             }
         }
