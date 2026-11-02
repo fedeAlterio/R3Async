@@ -59,7 +59,6 @@ public abstract class AsyncObservable<T>
 /// <typeparam name="T">The type of the values received by the observer.</typeparam>
 public abstract class AsyncObserver<T> : IAsyncDisposable
 {
-    // Same owner-token scheme as AsyncGate.
     readonly object _gate = new();
     readonly CancellationTokenSource _disposeCts = new();
     ObserverCallToken? _currentCall;
