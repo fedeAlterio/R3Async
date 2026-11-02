@@ -391,6 +391,34 @@ public class TakeUntilTest
         result.IsSuccess.ShouldBeTrue();
     }
 
+    [Fact(Timeout = 10000)]
+    public async Task TakeUntil_CancellationToken_ValueWaitingWhileCompletingDoesNotDeadlock()
+    {
+        var source = new ManualSource<int>();
+        using var cts = new CancellationTokenSource();
+        var completing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var values = new List<int>();
+
+        await using var subscription = await source.TakeUntil(cts.Token).SubscribeAsync(
+            async (x, token) => values.Add(x),
+            async (ex, token) => { },
+            async result =>
+            {
+                completing.SetResult();
+                await releaseCompletion.Task;
+            },
+            CancellationToken.None);
+
+        cts.Cancel();
+        await completing.Task;
+        var waitingValue = source.Observer!.OnNextAsync(3, CancellationToken.None).AsTask();
+        releaseCompletion.SetResult();
+
+        await waitingValue;
+        values.ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task TakeUntil_Predicate_CompletesOnPredicateTrue()
     {

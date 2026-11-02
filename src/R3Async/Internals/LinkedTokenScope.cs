@@ -36,6 +36,9 @@ internal readonly struct LinkedTokenScope : IDisposable
         return new(linkedCts, linkedCts.Token);
     }
 
+    /// <summary>Wraps a token owned by someone else; disposing the scope does nothing.</summary>
+    public static LinkedTokenScope Borrow(CancellationToken token) => new(null, token);
+
     /// <inheritdoc/>
     public void Dispose() => _linkedCts?.Dispose();
 }

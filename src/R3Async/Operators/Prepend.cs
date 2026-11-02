@@ -25,13 +25,12 @@ public static partial class AsyncObservable
             {
                 var cts = new CancellationTokenSource();
                 SingleAssignmentAsyncDisposable subscriptionDisposable = new();
-                AsyncLocal<bool> reentrant = new();
                 Task task = Core(cts.Token);
                 async Task Core(CancellationToken cancellationToken)
                 {
                     try
                     {
-                        reentrant.Value = true;
+                        ExecutionFlow.Enter(cts);
                         foreach (var value in values)
                         {
                             if (cancellationToken.IsCancellationRequested) return;
@@ -59,7 +58,7 @@ public static partial class AsyncObservable
                 var subscription = AsyncDisposable.Create(async () =>
                 {
                     await subscriptionDisposable.DisposeAsync();
-                    if (!reentrant.Value)
+                    if (!ExecutionFlow.Contains(cts))
                     {
                         cts.Cancel();
                         await task;

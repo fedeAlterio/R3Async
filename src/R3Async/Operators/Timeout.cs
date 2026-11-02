@@ -46,6 +46,7 @@ internal sealed class TimeoutObservable<T>(AsyncObservable<T> source, TimeSpan d
         readonly SingleAssignmentAsyncDisposable _sourceDisposable = new();
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
+        readonly LinkedTokenCache _linkedTokens;
         readonly AsyncGate _gate = new();
         readonly TimeProvider _timeProvider;
         readonly SerialAsyncDisposable _timerDisposable = new();
@@ -58,6 +59,7 @@ internal sealed class TimeoutObservable<T>(AsyncObservable<T> source, TimeSpan d
             _dueTime = dueTime;
             _timeProvider = timeProvider;
             _disposeCancellationToken = _disposeCts.Token;
+            _linkedTokens = new(_disposeCancellationToken);
         }
 
         public async ValueTask SubscribeAsync(AsyncObservable<T> source, CancellationToken subscriptionToken)
@@ -77,7 +79,7 @@ internal sealed class TimeoutObservable<T>(AsyncObservable<T> source, TimeSpan d
 
         async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
+            using var scope = _linkedTokens.Rent(cancellationToken);
             long version;
             using (await _gate.LockAsync())
             {
@@ -127,8 +129,8 @@ internal sealed class TimeoutObservable<T>(AsyncObservable<T> source, TimeSpan d
 
         async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
-            using (await _gate.LockAsync())
+            using var scope = _linkedTokens.Rent(cancellationToken);
+            using (await _gate.LockAsync(_disposeCancellationToken))
             {
                 if (_terminated) return;
                 await _observer.OnErrorResumeAsync(error, scope.Token);

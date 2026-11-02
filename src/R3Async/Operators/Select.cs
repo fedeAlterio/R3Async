@@ -20,33 +20,23 @@ public static partial class AsyncObservable
 
         /// <summary>
         /// Projects each value of the source sequence into a new form using a synchronous <paramref name="selector"/>.
+        /// Consecutive synchronous <c>Select</c> and <c>Where</c> calls are fused into a single operator.
         /// </summary>
         /// <typeparam name="TDest">The type produced by <paramref name="selector"/>.</typeparam>
         /// <param name="selector">Synchronous projection function applied to each value.</param>
         public AsyncObservable<TDest> Select<TDest>(Func<T, TDest> selector)
         {
-            return new SelectObservable<T, TDest>(@this, selector);
+            if (@this is FusedObservable<T> fused)
+            {
+                return fused.Select(selector);
+            }
+
+            return new FusedObservable<T, TDest>(@this, (T value, out TDest result) =>
+            {
+                result = selector(value);
+                return true;
+            });
         }
-    }
-}
-
-sealed class SelectObservable<T, TDest>(AsyncObservable<T> source, Func<T, TDest> selector) : AsyncObservable<TDest>
-{
-    protected override ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<TDest> observer, CancellationToken cancellationToken)
-    {
-        return source.SubscribeAsync(new SelectObserver(observer, selector), cancellationToken);
-    }
-
-    sealed class SelectObserver(AsyncObserver<TDest> observer, Func<T, TDest> selector) : AsyncObserver<T>
-    {
-        protected override ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
-            => observer.OnNextAsync(selector(value), cancellationToken);
-
-        protected override ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
-            => observer.OnErrorResumeAsync(error, cancellationToken);
-
-        protected override ValueTask OnCompletedAsyncCore(Result result)
-            => observer.OnCompletedAsync(result);
     }
 }
 

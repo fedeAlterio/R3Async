@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 
 namespace R3Async;
 
@@ -12,18 +13,19 @@ public static class UnhandledExceptionHandler
     static Action<Exception> _unhandledException = DefaultUnhandledExceptionHandler;
 
     /// <summary>
-    /// Replaces the global unhandled exception handler with <paramref name="unhandledExceptionHandler"/>. Not
-    /// thread-safe with concurrent unhandled exceptions being reported; typically called once at startup.
+    /// Replaces the global unhandled exception handler with <paramref name="unhandledExceptionHandler"/>. Safe to call
+    /// while exceptions are being reported: each report uses either the previous or the new handler.
     /// </summary>
-    public static void Register(Action<Exception> unhandledExceptionHandler) => _unhandledException = unhandledExceptionHandler;
-    static void DefaultUnhandledExceptionHandler(Exception exception) => Console.WriteLine("R3 UnhandleException: " + exception);
+    public static void Register(Action<Exception> unhandledExceptionHandler) =>
+        Volatile.Write(ref _unhandledException, unhandledExceptionHandler ?? throw new ArgumentNullException(nameof(unhandledExceptionHandler)));
+    static void DefaultUnhandledExceptionHandler(Exception exception) => Console.WriteLine("R3Async unhandled exception: " + exception);
     internal static void OnUnhandledException(Exception e)
     {
         if (e is OperationCanceledException) return;
 
         try
         {
-            _unhandledException(e);
+            Volatile.Read(ref _unhandledException)(e);
         }
         catch
         {
