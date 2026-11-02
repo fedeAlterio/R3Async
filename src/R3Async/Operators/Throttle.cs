@@ -65,6 +65,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
         readonly SingleAssignmentAsyncDisposable _sourceDisposable = new();
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
+        readonly LinkedTokenCache _linkedTokens;
         readonly AsyncGate _gate = new();
         readonly object _stateGate = new();
         readonly TimeProvider _timeProvider;
@@ -81,6 +82,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
             _emitFirst = emitFirst;
             _emitLast = emitLast;
             _disposeCancellationToken = _disposeCts.Token;
+            _linkedTokens = new(_disposeCancellationToken);
         }
 
         public async ValueTask SubscribeAsync(AsyncObservable<T> source, CancellationToken subscriptionToken)
@@ -91,7 +93,7 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
+            using var scope = _linkedTokens.Rent(cancellationToken);
             using (await _gate.LockAsync(_disposeCancellationToken))
             {
                 lock (_stateGate)
@@ -150,9 +152,14 @@ internal sealed class ThrottleObservable<T>(AsyncObservable<T> source, TimeSpan 
 
         async ValueTask OnErrorResumeAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
-            using (await _gate.LockAsync())
+            using var scope = _linkedTokens.Rent(cancellationToken);
+            using (await _gate.LockAsync(_disposeCancellationToken))
             {
+                lock (_stateGate)
+                {
+                    if (_terminated) return;
+                }
+
                 await _observer.OnErrorResumeAsync(error, scope.Token);
             }
         }

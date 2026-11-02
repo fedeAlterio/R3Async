@@ -37,6 +37,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposeCancellationToken;
+        readonly LinkedTokenCache _linkedTokens;
         IAsyncDisposable? _currentInnerSubscription;
         SwitchInnerObserver? _currentInnerObserver;
 
@@ -49,6 +50,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
         {
             _observer = observer;
             _disposeCancellationToken = _disposeCts.Token;
+            _linkedTokens = new(_disposeCancellationToken);
         }
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> source, CancellationToken subscriptionToken)
@@ -159,7 +161,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         public async ValueTask OnNextInnerAsync(T value, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
+            using var scope = _linkedTokens.Rent(cancellationToken);
             using (await _observerOnSomethingGate.LockAsync())
             {
                 await _observer.OnNextAsync(value, scope.Token);
@@ -168,7 +170,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
 
         public async ValueTask OnErrorInnerAsync(Exception error, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposeCancellationToken);
+            using var scope = _linkedTokens.Rent(cancellationToken);
             using (await _observerOnSomethingGate.LockAsync())
             {
                 await _observer.OnErrorResumeAsync(error, scope.Token);
@@ -209,7 +211,7 @@ internal sealed class SwitchObservable<T>(AsyncObservable<AsyncObservable<T>> so
                 => subscription.OnNextOuterAsync(value);
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposeCancellationToken);
+                using var scope = subscription._linkedTokens.Rent(cancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
                     await subscription._observer.OnErrorResumeAsync(error, scope.Token);

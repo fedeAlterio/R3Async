@@ -756,12 +756,12 @@ public sealed record ShareConfig
 }
 ```
 
-By default, an empty `ShareConfig` behaves exactly like `Publish().RefCount()`: when the observable completes or the final subscriber disconnects, subsequent subscribers merely receive completion results without the observable restarting.
+When no config is passed, `Share` uses `ShareConfig.ResetOnCompletionAndRefCountZero`, which matches Rx's `Publish().RefCount()`: the source is disconnected as soon as the final subscriber leaves, and a completed connection is discarded, so the next subscriber re-opens the source with a fresh subject. This makes shared observables automatically restart back to their original state once all consumers leave.
 
-Using `ShareConfig` with `ResetOnRefCountZero` (or `ResetOnCompletionAndRefCountZero`) is especially useful for creating hot multicast observables that automatically restart back to their original state and re-open the source once all consumers leave.
+To keep the source connected even with no subscribers, pass an empty `new ShareConfig()`: nothing is ever reset, so after completion subsequent subscribers merely receive the completion result without the observable restarting. Set the individual flags to reset only on some of these events.
 
 ```csharp
-var refCounted = source.Share(startValue: 0, ShareConfig.ResetOnCompletionAndRefCountZero);
+var refCounted = source.Share(startValue: 0);
 
 // First subscription gets initial value and connects
 await using (await refCounted.SubscribeAsync(

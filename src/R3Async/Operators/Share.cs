@@ -13,19 +13,19 @@ public static partial class AsyncObservable
         /// <summary>
         /// Shares a single subscription to <paramref name="@this"/> among multiple observers, combining the
         /// behavior of <c>Publish()</c> and <c>RefCount()</c> using a regular <see cref="Subject"/>: the first
-        /// subscriber connects the source, and the last unsubscribing observer disconnects it. See <paramref name="config"/>
-        /// for how completion and reaching zero subscribers affect whether the connection is reset.
+        /// subscriber connects the source, and by default the last unsubscribing observer disconnects it. See
+        /// <paramref name="config"/> for how completion and reaching zero subscribers affect whether the connection is reset.
         /// </summary>
-        /// <param name="config">Controls when the underlying connection is reset. Defaults to a config where nothing is reset (equivalent to <c>Publish().RefCount()</c>).</param>
+        /// <param name="config">Controls when the underlying connection is reset. Defaults to <see cref="ShareConfig.ResetOnCompletionAndRefCountZero"/>: the source is disconnected when the subscriber count drops to zero, and a completed connection is discarded so the next subscriber starts a fresh one. Pass <c>new ShareConfig()</c> to keep the source connected forever.</param>
         public AsyncObservable<T> Share(ShareConfig? config = null) => @this.Share(static () => Subject.Create<T>(),                       config);
 
         /// <summary>Same as <see cref="Share(AsyncObservable{T}, ShareConfig?)"/>, but uses a <c>BehaviorSubject</c> seeded with <paramref name="startValue"/> so new subscribers immediately receive the latest (or initial) value.</summary>
         /// <param name="startValue">The value emitted immediately to subscribers before the source has produced a value, or after the connection has been reset.</param>
-        /// <param name="config">Controls when the underlying connection is reset. Defaults to a config where nothing is reset.</param>
+        /// <param name="config">Controls when the underlying connection is reset. Defaults to <see cref="ShareConfig.ResetOnCompletionAndRefCountZero"/>.</param>
         public AsyncObservable<T> Share(T startValue, ShareConfig? config = null) => @this.Share(() => Subject.CreateBehavior(startValue), config);
 
         /// <summary>Same as <see cref="Share(AsyncObservable{T}, ShareConfig?)"/>, but uses a replay-latest subject so new subscribers immediately receive the most recently emitted value, if any.</summary>
-        /// <param name="config">Controls when the underlying connection is reset. Defaults to a config where nothing is reset.</param>
+        /// <param name="config">Controls when the underlying connection is reset. Defaults to <see cref="ShareConfig.ResetOnCompletionAndRefCountZero"/>.</param>
         public AsyncObservable<T> ShareLatest(ShareConfig? config = null) => @this.Share(Subject.CreateReplayLatest<T>,                    config);
 
         /// <summary>
@@ -34,7 +34,7 @@ public static partial class AsyncObservable
         /// subject each time the connection is (re)established, including after a reset per <paramref name="config"/>.
         /// </summary>
         /// <param name="connector">Factory invoked to create the subject backing each connection.</param>
-        /// <param name="config">Controls when the underlying connection is reset. Defaults to a config where nothing is reset (equivalent to <c>Publish().RefCount()</c>).</param>
+        /// <param name="config">Controls when the underlying connection is reset. Defaults to <see cref="ShareConfig.ResetOnCompletionAndRefCountZero"/>.</param>
         public AsyncObservable<T> Share(Func<ISubject<T>> connector, ShareConfig? config = null)
         {
             if (@this is null)
@@ -42,7 +42,7 @@ public static partial class AsyncObservable
             if (connector is null)
                 throw new ArgumentNullException(nameof(connector));
 
-            return new ShareObservable<T>(@this, connector, config ?? new ShareConfig());
+            return new ShareObservable<T>(@this, connector, config ?? ShareConfig.ResetOnCompletionAndRefCountZero);
         }
     }
 
@@ -77,34 +77,82 @@ public static partial class AsyncObservable
             {
                 using (await _gate.LockAsync())
                 {
+                    // Counted before subscribing: a replaying subject can run observers reentrantly.
                     _refCount++;
-
                     var connection = _connection;
-                    if (connection is null)
+                    if (connection is not null)
                     {
-                        connection = new ShareConnection(this);
-                        _connection = connection;
-                        var disposable = await SubscribeToSubject(connection, observer, cancellationToken);
                         try
                         {
-                            await _parent._source.SubscribeAsync(connection, cancellationToken);
+                            return await SubscribeToSubject(connection, observer, cancellationToken);
                         }
                         catch
                         {
-                            if (ReferenceEquals(_connection, connection))
-                            {
-                                _connection = null;
-                            }
-                            await disposable.DisposeAsync();
+                            _refCount--;
+                            await ResetIfUnused(connection);
                             throw;
                         }
-
-                        return disposable;
                     }
 
-                    return await SubscribeToSubject(connection, observer, cancellationToken);
+                    connection = new ShareConnection(this);
+                    _connection = connection;
+                    IAsyncDisposable disposable;
+                    try
+                    {
+                        disposable = await SubscribeToSubject(connection, observer, cancellationToken);
+                    }
+                    catch
+                    {
+                        // Observers that joined reentrantly while this one was subscribing still need the source.
+                        if (--_refCount == 0)
+                        {
+                            DropConnection(connection);
+                        }
+                        else
+                        {
+                            await ConnectSource(connection, cancellationToken);
+                        }
+
+                        throw;
+                    }
+
+                    try
+                    {
+                        await ConnectSource(connection, cancellationToken);
+                    }
+                    catch
+                    {
+                        await disposable.DisposeAsync();
+                        throw;
+                    }
+
+                    return disposable;
                 }
             }
+
+            async ValueTask ConnectSource(ShareConnection connection, CancellationToken cancellationToken)
+            {
+                try
+                {
+                    await _parent._source.SubscribeAsync(connection, cancellationToken);
+                }
+                catch
+                {
+                    DropConnection(connection);
+                    throw;
+                }
+            }
+
+            void DropConnection(ShareConnection connection)
+            {
+                if (ReferenceEquals(_connection, connection))
+                {
+                    _connection = null;
+                }
+            }
+
+            ValueTask ResetIfUnused(ShareConnection connection) =>
+                _refCount == 0 && _parent._config.ResetOnRefCountZero && !connection.Completed ? DisposeConnection() : default;
 
             async ValueTask<IAsyncDisposable> SubscribeToSubject(ShareConnection connection, AsyncObserver<T> observer, CancellationToken cancellationToken)
             {
@@ -113,12 +161,9 @@ public static partial class AsyncObservable
                 {
                     using (await _gate.LockAsync())
                     {
-                        var refCount = --_refCount;
+                        _refCount--;
                         await subscription.DisposeAsync();
-                        if (_parent._config.ResetOnRefCountZero && refCount == 0 && !connection.Completed)
-                        {
-                            await DisposeConnection();
-                        }
+                        await ResetIfUnused(connection);
                     }
                 });
             }

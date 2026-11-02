@@ -1,11 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using R3Async.Internals;
 
 namespace R3Async;
+
+/// <summary>
+/// Configures how <c>Merge</c> forwards the cancellation of a notification to the downstream observer.
+/// </summary>
+public sealed record MergeOptions
+{
+    /// <summary>
+    /// When <see langword="true"/>, values are forwarded with the merge's lifetime token only, ignoring the token
+    /// passed by inner observables. Avoids linking a token per value. Default: <see langword="false"/>.
+    /// </summary>
+    public bool DetachInnerCancellation { get; init; }
+
+    /// <summary>The default options: <see cref="DetachInnerCancellation"/> is <see langword="false"/>.</summary>
+    public static MergeOptions Default { get; } = new();
+}
 
 public static partial class AsyncObservable
 {
@@ -16,7 +32,8 @@ public static partial class AsyncObservable
     /// </summary>
     /// <typeparam name="T">The type of the values emitted by the inner observables.</typeparam>
     /// <param name="this">The observable of observables to merge.</param>
-    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this) => new MergeObservableObservables<T>(@this);
+    /// <param name="options">Controls how cancellation is forwarded downstream. Defaults to <see cref="MergeOptions.Default"/>.</param>
+    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this, MergeOptions? options = null) => new MergeObservableObservables<T>(@this, options ?? MergeOptions.Default);
 
     /// <summary>
     /// Merges an observable of observables into a single stream, subscribing to at most <paramref name="maxConcurrent"/>
@@ -25,7 +42,8 @@ public static partial class AsyncObservable
     /// <typeparam name="T">The type of the values emitted by the inner observables.</typeparam>
     /// <param name="this">The observable of observables to merge.</param>
     /// <param name="maxConcurrent">The maximum number of inner observables subscribed to concurrently.</param>
-    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this, int maxConcurrent) => new MergeObservableObservablesWithMaxConcurrency<T>(@this, maxConcurrent);
+    /// <param name="options">Controls how cancellation is forwarded downstream. Defaults to <see cref="MergeOptions.Default"/>.</param>
+    public static AsyncObservable<T> Merge<T>(this AsyncObservable<AsyncObservable<T>> @this, int maxConcurrent, MergeOptions? options = null) => new MergeObservableObservablesWithMaxConcurrency<T>(@this, maxConcurrent, options ?? MergeOptions.Default);
 
     /// <summary>
     /// Subscribes concurrently to all observables in <paramref name="this"/> and merges their values into a single
@@ -33,19 +51,21 @@ public static partial class AsyncObservable
     /// </summary>
     /// <typeparam name="T">The type of the values emitted by the source observables.</typeparam>
     /// <param name="this">The observables to merge.</param>
-    public static AsyncObservable<T> Merge<T>(this IEnumerable<AsyncObservable<T>> @this) => new MergeEnumerableObservable<T>(@this);
+    /// <param name="options">Controls how cancellation is forwarded downstream. Defaults to <see cref="MergeOptions.Default"/>.</param>
+    public static AsyncObservable<T> Merge<T>(this IEnumerable<AsyncObservable<T>> @this, MergeOptions? options = null) => new MergeEnumerableObservable<T>(@this, options ?? MergeOptions.Default);
 
     /// <summary>Merges <paramref name="this"/> and <paramref name="other"/>, subscribing to both concurrently and forwarding values from either as they arrive.</summary>
     /// <typeparam name="T">The type of the values emitted by the source observables.</typeparam>
     /// <param name="this">The first observable to merge.</param>
     /// <param name="other">The second observable to merge.</param>
-    public static AsyncObservable<T> Merge<T>(this AsyncObservable<T> @this, AsyncObservable<T> other) => new MergeEnumerableObservable<T>([@this, other]);
+    /// <param name="options">Controls how cancellation is forwarded downstream. Defaults to <see cref="MergeOptions.Default"/>.</param>
+    public static AsyncObservable<T> Merge<T>(this AsyncObservable<T> @this, AsyncObservable<T> other, MergeOptions? options = null) => new MergeEnumerableObservable<T>([@this, other], options ?? MergeOptions.Default);
 
-    sealed class MergeObservableObservables<T>(AsyncObservable<AsyncObservable<T>> sources) : AsyncObservable<T>
+    sealed class MergeObservableObservables<T>(AsyncObservable<AsyncObservable<T>> sources, MergeOptions options) : AsyncObservable<T>
     {
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
-            var subscription = new MergeSubscription<T>(observer);
+            var subscription = new MergeSubscription<T>(observer, options);
             try
             {
                 await subscription.SubscribeAsync(sources, cancellationToken);
@@ -60,11 +80,11 @@ public static partial class AsyncObservable
         }
     }
 
-    sealed class MergeObservableObservablesWithMaxConcurrency<T>(AsyncObservable<AsyncObservable<T>> sources, int maxConcurrent) : AsyncObservable<T>
+    sealed class MergeObservableObservablesWithMaxConcurrency<T>(AsyncObservable<AsyncObservable<T>> sources, int maxConcurrent, MergeOptions options) : AsyncObservable<T>
     {
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
-            var subscription = new MergeSubscriptionWithMaxConcurrency<T>(observer, maxConcurrent);
+            var subscription = new MergeSubscriptionWithMaxConcurrency<T>(observer, maxConcurrent, options);
             try
             {
                 await subscription.SubscribeAsync(sources, cancellationToken);
@@ -90,12 +110,18 @@ public static partial class AsyncObservable
         readonly AsyncGate _onSomethingGate = new();
         bool _disposed;
         readonly AsyncObserver<T> _observer;
+        readonly bool _detachInnerCancellation;
 
-        public MergeSubscription(AsyncObserver<T> observer)
+        public MergeSubscription(AsyncObserver<T> observer, MergeOptions options)
         {
             _observer = observer;
+            _detachInnerCancellation = options.DetachInnerCancellation;
             DisposedCancellationToken = _disposeCts.Token;
         }
+
+        LinkedTokenScope ForwardScope(CancellationToken cancellationToken) => _detachInnerCancellation
+            ? LinkedTokenScope.Borrow(DisposedCancellationToken)
+            : LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> @this, CancellationToken cancellationToken)
         {
@@ -131,10 +157,13 @@ public static partial class AsyncObservable
 
         protected virtual InnerAsyncObserver CreateInnerObserver() => new(this);
 
+#if NET6_0_OR_GREATER
+        [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
+#endif
         async ValueTask ForwardOnNext(T value, CancellationToken cancellationToken)
         {
             if (_disposed) return;
-            using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
+            using var scope = ForwardScope(cancellationToken);
             using (await _onSomethingGate.LockAsync(DisposedCancellationToken))
             {
                 if (_disposed) return;
@@ -144,7 +173,7 @@ public static partial class AsyncObservable
 
         async ValueTask ForwardOnErrorResume(Exception exception, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, DisposedCancellationToken);
+            using var scope = ForwardScope(cancellationToken);
             using (await _onSomethingGate.LockAsync(DisposedCancellationToken))
             {
                 if (_disposed) return;
@@ -216,7 +245,7 @@ public static partial class AsyncObservable
         }
     }
 
-    sealed class MergeSubscriptionWithMaxConcurrency<T>(AsyncObserver<T> observer, int maxConcurrent) : MergeSubscription<T>(observer)
+    sealed class MergeSubscriptionWithMaxConcurrency<T>(AsyncObserver<T> observer, int maxConcurrent, MergeOptions options) : MergeSubscription<T>(observer, options)
     {
         readonly SemaphoreSlim _semaphore = new(maxConcurrent, maxConcurrent);
 
@@ -243,8 +272,6 @@ public static partial class AsyncObservable
             }
         }
 
-        protected override InnerAsyncObserver CreateInnerObserver() => new InnerAsyncObserverWithSemaphore(this);
-
         sealed class InnerAsyncObserverWithSemaphore(MergeSubscriptionWithMaxConcurrency<T> parent) : InnerAsyncObserver(parent)
         {
             int _semaphoreReleased;
@@ -265,21 +292,12 @@ public static partial class AsyncObservable
         }
     }
 
-    sealed class MergeEnumerableObservable<T>(IEnumerable<AsyncObservable<T>> sources) : AsyncObservable<T>
+    sealed class MergeEnumerableObservable<T>(IEnumerable<AsyncObservable<T>> sources, MergeOptions options) : AsyncObservable<T>
     {
         protected override async ValueTask<IAsyncDisposable> SubscribeAsyncCore(AsyncObserver<T> observer, CancellationToken cancellationToken)
         {
-            var subscription = new MergeEnumerableSubscription(observer, sources);
-            try
-            {
-                subscription.StartAsync();
-            }
-            catch
-            {
-                await subscription.DisposeAsync();
-                throw;
-            }
-
+            var subscription = new MergeEnumerableSubscription(observer, sources, options);
+            await subscription.StartAsync();
             return subscription;
         }
 
@@ -292,24 +310,29 @@ public static partial class AsyncObservable
             readonly AsyncGate _onSomethingGate = new();
             readonly object _stateGate = new();
             readonly TaskCompletionSource<bool> _subscriptionFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
-            readonly AsyncLocal<bool> _reentrant = new();
             int _active;
             bool _enumerationCompleted;
             bool _disposed;
             readonly AsyncObserver<T> _observer;
+            readonly bool _detachInnerCancellation;
 
-            public MergeEnumerableSubscription(AsyncObserver<T> observer, IEnumerable<AsyncObservable<T>> sources)
+            public MergeEnumerableSubscription(AsyncObserver<T> observer, IEnumerable<AsyncObservable<T>> sources, MergeOptions options)
             {
                 _observer = observer;
                 _sources = sources;
+                _detachInnerCancellation = options.DetachInnerCancellation;
                 _disposedCancellationToken = _cts.Token;
             }
 
-            public async void StartAsync()
+            LinkedTokenScope ForwardScope(CancellationToken token) => _detachInnerCancellation
+                ? LinkedTokenScope.Borrow(_disposedCancellationToken)
+                : LinkedTokenScope.Create(token, _disposedCancellationToken);
+
+            public async ValueTask StartAsync()
             {
                 try
                 {
-                    _reentrant.Value = true;
+                    ExecutionFlow.Enter(this);
                     try
                     {
                         foreach (var src in _sources)
@@ -365,9 +388,12 @@ public static partial class AsyncObservable
                 }
             }
 
+#if NET6_0_OR_GREATER
+            [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
+#endif
             async ValueTask OnNextAsync(T value, CancellationToken token)
             {
-                using var scope = LinkedTokenScope.Create(token, _disposedCancellationToken);
+                using var scope = ForwardScope(token);
                 using (await _onSomethingGate.LockAsync(_disposedCancellationToken))
                 {
                     lock (_stateGate)
@@ -381,7 +407,7 @@ public static partial class AsyncObservable
 
             async ValueTask OnErrorResumeAsync(Exception ex, CancellationToken token)
             {
-                using var scope = LinkedTokenScope.Create(token, _disposedCancellationToken);
+                using var scope = ForwardScope(token);
                 using (await _onSomethingGate.LockAsync(_disposedCancellationToken))
                 {
                     lock (_stateGate)
@@ -426,7 +452,7 @@ public static partial class AsyncObservable
 
                 _cts.Cancel();
                 await _innerDisposables.DisposeAsync();
-                if (!_reentrant.Value)
+                if (!ExecutionFlow.Contains(this))
                 {
                     await _subscriptionFinished.Task;
                 }

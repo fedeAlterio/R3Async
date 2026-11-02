@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using R3Async.Internals;
@@ -58,19 +59,17 @@ public abstract class AsyncObservable<T>
 /// <typeparam name="T">The type of the values received by the observer.</typeparam>
 public abstract class AsyncObserver<T> : IAsyncDisposable
 {
-    // Same owner-token scheme as AsyncGate: the flow-local token is only a claim, and it counts as
-    // the in-flight call chain only while it reference-equals _currentCall. A token inherited by a
-    // flow forked during a call goes stale as soon as the chain unwinds, so later calls from that
-    // flow are neither treated as reentrant nor misreported as concurrent.
-    readonly AsyncLocal<ObserverCallToken?> _callToken = new();
+    // Same owner-token scheme as AsyncGate.
+    readonly object _gate = new();
     readonly CancellationTokenSource _disposeCts = new();
     ObserverCallToken? _currentCall;
     TaskCompletionSource<object?>? _allCallsCompletedTcs;
 
-    sealed class ObserverCallToken
-    {
-        public int Count = 1;
-    }
+    // Linked with _disposeCts and reused while the caller keeps passing the same token.
+    CancellationToken _linkedCallerToken;
+    CancellationTokenSource? _linkedCts;
+
+    sealed class ObserverCallToken : FlowToken;
     internal bool IsDisposed => _disposeCts.IsCancellationRequested;
     IAsyncDisposable? _sourceSubscription;
     internal ValueTask SetSourceSubscriptionAsync(IAsyncDisposable? value) => SingleAssignmentAsyncDisposable.SetDisposableAsync(ref _sourceSubscription, value);
@@ -81,6 +80,9 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     /// thrown by the implementation is routed to <see cref="OnErrorResumeAsync"/> rather than propagating to the
     /// caller; an <see cref="OperationCanceledException"/> is swallowed instead.
     /// </summary>
+#if NET6_0_OR_GREATER
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
+#endif
     public async ValueTask OnNextAsync(T value, CancellationToken cancellationToken)
     {
         if (!TryEnterOnSomethingCall(cancellationToken, out var scope))
@@ -113,7 +115,7 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     [DebuggerStepThrough]
     bool TryEnterOnSomethingCall(CancellationToken cancellationToken, out LinkedTokenScope scope)
     {
-        lock (_callToken)
+        lock (_gate)
         {
             if (_disposeCts.IsCancellationRequested || cancellationToken.IsCancellationRequested)
             {
@@ -126,28 +128,52 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             {
                 var token = new ObserverCallToken();
                 _currentCall = token;
-                _callToken.Value = token;
-            }
-            else if (ReferenceEquals(_callToken.Value, currentCall))
-            {
-                currentCall.Count++;
-            }
-            else
-            {
-                UnhandledExceptionHandler.OnUnhandledException(new ConcurrentObserverCallsException());
-                scope = default;
-                return false;
+                ExecutionFlow.Enter(token);
+                scope = LinkedTokenScope.Borrow(LinkedCallToken(cancellationToken));
+                return true;
             }
 
-            scope = LinkedTokenScope.Create(cancellationToken, _disposeCts.Token);
-            return true;
+            if (ExecutionFlow.Contains(currentCall))
+            {
+                currentCall.Count++;
+                scope = LinkedTokenScope.Create(cancellationToken, _disposeCts.Token);
+                return true;
+            }
+
+            UnhandledExceptionHandler.OnUnhandledException(new ConcurrentObserverCallsException());
+            scope = default;
+            return false;
         }
+    }
+
+    CancellationToken LinkedCallToken(CancellationToken callerToken)
+    {
+        if (!callerToken.CanBeCanceled)
+        {
+            return _disposeCts.Token;
+        }
+
+        if (_linkedCts is null || _linkedCallerToken != callerToken)
+        {
+            _linkedCts?.Dispose();
+            _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(callerToken, _disposeCts.Token);
+            _linkedCallerToken = callerToken;
+        }
+
+        return _linkedCts.Token;
+    }
+
+    void DisposeLinkedCallToken()
+    {
+        _linkedCts?.Dispose();
+        _linkedCts = null;
+        _linkedCallerToken = default;
     }
 
     [DebuggerStepThrough]
     bool ExitOnSomethingCall()
     {
-        lock (_callToken)
+        lock (_gate)
         {
             var currentCall = _currentCall;
             Debug.Assert(currentCall is not null);
@@ -156,6 +182,11 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
             if (--currentCall.Count == 0)
             {
                 _currentCall = null;
+                if (_disposeCts.IsCancellationRequested)
+                {
+                    DisposeLinkedCallToken();
+                }
+
                 if (_allCallsCompletedTcs is not null)
                 {
                     _allCallsCompletedTcs.SetResult(null);
@@ -268,21 +299,26 @@ public abstract class AsyncObserver<T> : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Task? allOnSomethingCallsCompleted = null;
-        lock (_callToken)
+        lock (_gate)
         {
             if (_disposeCts.IsCancellationRequested) return;
 
             _disposeCts.Cancel();
 
+            // With a call in flight, its last ExitOnSomethingCall releases the linked token instead.
+            if (_currentCall is null)
+            {
+                DisposeLinkedCallToken();
+            }
             // Wait for the in-flight call chain unless this flow is part of it (disposing from
             // within a call must not deadlock on itself).
-            if (_currentCall is not null && !ReferenceEquals(_callToken.Value, _currentCall))
+            else if (!ExecutionFlow.Contains(_currentCall))
             {
                 _allCallsCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 allOnSomethingCallsCompleted = _allCallsCompletedTcs.Task;
             }
         }
-        
+
         if (allOnSomethingCallsCompleted is not null)
         {
             await allOnSomethingCallsCompleted;

@@ -61,6 +61,7 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
         int _generation;
         readonly CancellationTokenSource _cts = new();
         readonly CancellationToken _disposedCancellationToken;
+        readonly LinkedTokenCache _linkedTokens;
         int _disposed;
         readonly AsyncObserver<T> _observer;
 
@@ -69,6 +70,7 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
             _observer = observer;
             _enumerator = parent._observables.GetEnumerator();
             _disposedCancellationToken = _cts.Token;
+            _linkedTokens = new(_disposedCancellationToken);
         }
 
         public async ValueTask SubscribeNextAsync()
@@ -121,13 +123,13 @@ internal sealed class ConcatEnumerableObservable<T>(IEnumerable<AsyncObservable<
 
         async ValueTask OnInnerErrorResumeAsync(Exception exception, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposedCancellationToken);
+            using var scope = _linkedTokens.Rent(cancellationToken);
             await _observer.OnErrorResumeAsync(exception, scope.Token);
         }
 
         async ValueTask OnInnerNextAsync(T value, CancellationToken cancellationToken)
         {
-            using var scope = LinkedTokenScope.Create(cancellationToken, _disposedCancellationToken);
+            using var scope = _linkedTokens.Rent(cancellationToken);
             await _observer.OnNextAsync(value, scope.Token);
         }
 
@@ -191,6 +193,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         readonly Queue<AsyncObservable<T>> _buffer = new();
         readonly CancellationTokenSource _disposeCts = new();
         readonly CancellationToken _disposedCancellationToken;
+        readonly LinkedTokenCache _linkedTokens;
         readonly SingleAssignmentAsyncDisposable _outerDisposable = new();
         IAsyncDisposable? _innerSubscription;
         int _generation;
@@ -203,6 +206,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         {
             _observer = observer;
             _disposedCancellationToken = _disposeCts.Token;
+            _linkedTokens = new(_disposedCancellationToken);
         }
 
         public async ValueTask SubscribeAsync(AsyncObservable<AsyncObservable<T>> source, CancellationToken subscriptionToken)
@@ -348,7 +352,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
                 => subscription.OnNextOuterAsync(value);
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposedCancellationToken);
+                using var scope = subscription._linkedTokens.Rent(cancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
                     await subscription._observer.OnErrorResumeAsync(error, scope.Token);
@@ -363,7 +367,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
         {
             protected override async ValueTask OnNextAsyncCore(T value, CancellationToken cancellationToken)
             {
-                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposedCancellationToken);
+                using var scope = subscription._linkedTokens.Rent(cancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
                     await subscription._observer.OnNextAsync(value, scope.Token);
@@ -372,7 +376,7 @@ internal sealed class ConcatObservablesObservable<T>(AsyncObservable<AsyncObserv
 
             protected override async ValueTask OnErrorResumeAsyncCore(Exception error, CancellationToken cancellationToken)
             {
-                using var scope = LinkedTokenScope.Create(cancellationToken, subscription._disposedCancellationToken);
+                using var scope = subscription._linkedTokens.Rent(cancellationToken);
                 using (await subscription._observerOnSomethingGate.LockAsync())
                 {
                     await subscription._observer.OnErrorResumeAsync(error, scope.Token);

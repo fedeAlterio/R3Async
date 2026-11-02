@@ -133,14 +133,20 @@ public class GroupByUntilTest
     {
         List<int> numbers = [1, 2, 3, 4, 5, 6];
         List<int> disposedGroups = [];
+        var groupSubscribed = new SemaphoreSlim(0);
 
         var subscription = await numbers.ToAsyncObservable()
             .GroupByUntil(x => x % 2, (_, ct) => Task.Delay(Timeout.Infinite, ct))
-            .Select(x => AsyncObservable.Never<int>().OnDispose(() => disposedGroups.Add(x.Key)))
+            .Select(x => AsyncObservable.Defer(() =>
+            {
+                groupSubscribed.Release();
+                return AsyncObservable.Never<int>().OnDispose(() => { lock (disposedGroups) disposedGroups.Add(x.Key); });
+            }))
             .Merge()
             .SubscribeAsync();
 
-        await Task.Delay(2000);
+        await Wait(groupSubscribed);
+        await Wait(groupSubscribed);
         await subscription.DisposeAsync();
 
         disposedGroups.Count.ShouldBe(2);

@@ -26,11 +26,10 @@ internal abstract class CancelableTaskSubscription<T>(AsyncObserver<T> observer)
 {
     readonly TaskCompletionSource<bool> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationTokenSource _cts = new();
-    readonly AsyncLocal<bool> _reentrant = new();
     public void Run() => _ = RunAsync(_cts.Token);
     async ValueTask RunAsync(CancellationToken cancellationToken)
     {
-        _reentrant.Value = true;
+        ExecutionFlow.Enter(this);
         try
         {
             await RunAsyncCore(observer, cancellationToken);
@@ -56,7 +55,7 @@ internal abstract class CancelableTaskSubscription<T>(AsyncObserver<T> observer)
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
-        if (!_reentrant.Value)
+        if (!ExecutionFlow.Contains(this))
         {
             await _tcs.Task;
         }
