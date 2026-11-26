@@ -68,6 +68,30 @@ public class OnBackpressureDropTest
     }
 
     [Fact(Timeout = 20000)]
+    public async Task SubscribeCompletesOnlyOnceTheSourceSubscriptionHasCompleted()
+    {
+        var sourceSubscribed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        AsyncObserver<int>? sourceObserver = null;
+        var source = AsyncObservable.Create<int>(async (observer, token) =>
+        {
+            await sourceSubscribed.Task;
+            sourceObserver = observer;
+            return AsyncDisposable.Empty;
+        });
+        var received = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var subscribing = source.OnBackpressureDrop().SubscribeAsync(async (x, token) => received.TrySetResult(x), CancellationToken.None).AsTask();
+        await Task.Yield();
+        subscribing.IsCompleted.ShouldBeFalse();
+
+        sourceSubscribed.SetResult();
+        await using var subscription = await subscribing;
+        await sourceObserver!.OnNextAsync(1, CancellationToken.None);
+
+        (await received.Task).ShouldBe(1);
+    }
+
+    [Fact(Timeout = 20000)]
     public async Task PropagatesCompletion()
     {
         var source = new ManualSource<int>();

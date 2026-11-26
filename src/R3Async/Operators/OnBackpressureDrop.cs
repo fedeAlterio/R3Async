@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using R3Async.Internals;
 
 namespace R3Async;
 
@@ -16,7 +17,7 @@ public static partial class AsyncObservable
         /// </summary>
         public AsyncObservable<T> OnBackpressureDrop()
         {
-            return CreateAsBackgroundJob<T>(async (observer, token) =>
+            return Create<T>(async (observer, cancellationToken) =>
             {
                 var channel = Channel.CreateBounded<T>(new BoundedChannelOptions(1)
                 {
@@ -26,7 +27,7 @@ public static partial class AsyncObservable
                     AllowSynchronousContinuations = false
                 });
 
-                await using var subscription = await @this.SubscribeAsync(
+                var subscription = await @this.SubscribeAsync(
                     (x, _) =>
                     {
                         channel.Writer.TryWrite(x);
@@ -34,15 +35,24 @@ public static partial class AsyncObservable
                     },
                     (e, _) => { channel.Writer.TryComplete(e); return default; },
                     r => { channel.Writer.TryComplete(r.Exception); return default; },
-                    token);
+                    cancellationToken);
 
-                await foreach (var value in channel.Reader.ReadAllAsync(token))
+                var drain = CancelableTaskSubscription.CreateAndStart<T>(async (obs, token) =>
                 {
-                    await observer.OnNextAsync(value, token);
-                }
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
+                    {
+                        await obs.OnNextAsync(value, token);
+                    }
 
-                await observer.OnCompletedAsync(Result.Success);
-            }, startSynchronously: true);
+                    await obs.OnCompletedAsync(Result.Success);
+                }, observer);
+
+                return AsyncDisposable.Create(async () =>
+                {
+                    await drain.DisposeAsync();
+                    await subscription.DisposeAsync();
+                });
+            });
         }
     }
 }
