@@ -1,3 +1,4 @@
+using R3Async.Subjects;
 using Shouldly;
 #pragma warning disable CS1998
 
@@ -50,6 +51,20 @@ public class OnBackpressureDropTest
         await second.Task;
 
         results.ShouldBe([1, 3]);
+    }
+
+    [Fact(Timeout = 20000)]
+    public async Task DeliversAValueEmittedRightAfterSubscribing()
+    {
+        var subject = Subject.Create<int>();
+        var received = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var subscription = await subject.Values.OnBackpressureDrop().SubscribeAsync(
+            async (x, token) => received.TrySetResult(x),
+            CancellationToken.None);
+        await subject.OnNextAsync(1, CancellationToken.None);
+
+        (await received.Task).ShouldBe(1);
     }
 
     [Fact(Timeout = 20000)]

@@ -42,7 +42,7 @@ public static partial class AsyncObservable
                 }
 
                 await observer.OnCompletedAsync(Result.Success);
-            });
+            }, startSynchronously: true);
         }
     }
 }
